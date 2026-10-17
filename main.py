@@ -15,9 +15,9 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-3.8-flash"
 MAX_QUESTION_LENGTH = 4_000
-MODEL = "gemini-2.5-flash"
+MAX_IMAGE_PROMPT_LENGTH = 1_200
 FREE_USES = 25
 DATA_FILE = "exquisite_data.json"
 UPLOAD_DIR = "uploads"
