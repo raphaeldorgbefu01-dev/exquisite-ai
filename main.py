@@ -17,7 +17,7 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
 MODEL = "gemini-1.5-flash"
 MAX_QUESTION_LENGTH = 4_000
-MAX_IMAGE_PROMPT_LENGTH = 1_200
+MODEL = "gemini-2.0-flash"
 FREE_USES = 25
 DATA_FILE = "exquisite_data.json"
 UPLOAD_DIR = "uploads"
