@@ -362,23 +362,29 @@ def generate_image():
     if not isinstance(prompt, str) or not prompt.strip():
         return jsonify({"error": "Prompt required."}), 400
     prompt = prompt.strip()[:MAX_IMAGE_PROMPT_LENGTH]
-    api_key = os.environ.get("POLLINATIONS_API_KEY")
-    image_url = f"https://gen.pollinations.ai/image/{quote(prompt, safe='')}?{urlencode({'model': 'flux'})}"
-    headers = {"Accept": "image/*","User-Agent": "ExquisiteAI/1.0"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    upstream_request = Request(image_url, headers=headers)
-    try:
-        with urlopen(upstream_request, timeout=120) as upstream:
-            ct = upstream.headers.get_content_type()
-            if not ct.startswith("image/"):
-                return jsonify({"error": "Pollinations unexpected"}), 502
-            image_bytes = upstream.read(15 * 1024 * 1024 + 1)
-            return Response(image_bytes, mimetype=ct, headers={"Cache-Control": "no-store"})
-    except HTTPError:
-        return jsonify({"error": "Pollinations could not generate image."}), 502
-    except (TimeoutError, URLError) as e:
-        return jsonify({"error": f"Pollinations timeout: {e}"}), 504
+
+    endpoints = [
+        f"https://image.pollinations.ai/prompt/{quote(prompt, safe='')}?width=1024&height=1024&nologo=true&model=flux",
+        f"https://gen.pollinations.ai/image/{quote(prompt, safe='')}?model=flux&width=1024&height=1024"
+    ]
+
+    last_error = ""
+    for image_url in endpoints:
+        try:
+            headers = {"Accept": "image/*","User-Agent": "ExquisiteAI/1.0"}
+            req = Request(image_url, headers=headers)
+            with urlopen(req, timeout=90) as upstream:
+                ct = upstream.headers.get_content_type() or "image/jpeg"
+                if not ct.startswith("image/"):
+                    last_error = f"Pollinations returned {ct}"
+                    continue
+                image_bytes = upstream.read(15 * 1024 * 1024 + 1)
+                return Response(image_bytes, mimetype=ct, headers={"Cache-Control": "no-store"})
+        except Exception as e:
+            last_error = str(e)[:200]
+            continue
+
+    return jsonify({"error": f"Image service busy, try again. {last_error}"}), 502
 
 @app.post("/api/request-payment")
 def request_payment():
