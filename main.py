@@ -9,9 +9,9 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-from flask import Flask, Response, jsonify, render_template_string, request, make_response, redirect
+from flask import Flask, Response, jsonify, render_template_string, request, make_response, redirect, send_from_directory
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
@@ -24,6 +24,7 @@ UPLOAD_DIR = "uploads"
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Shatta2025!")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs("static", exist_ok=True)
 
 RESULT_SCHEMA = {
     "type": "OBJECT",
@@ -81,6 +82,9 @@ PAGE = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Exquisite AI</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#101018">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/4712/4712109.png">
   <style>
     :root {color-scheme: dark; --bg: #101018; --panel: #191923; --line: rgba(255,255,255,.1); --text: #f5f2fa; --muted: #a4a1b2; --violet: #bda0ff; --mint: #a8f0d5; font-family: Inter, system-ui, sans-serif;}
     *{box-sizing:border-box} body{min-height:100vh;margin:0;color:var(--text);background:var(--bg)}
@@ -141,7 +145,7 @@ PAGE = r"""<!doctype html>
       <article class="output-card"><div class="card-heading"><span class="icon">↗</span><h2>TikTok caption</h2></div><p class="caption-text" id="caption"></p><div class="hashtags" id="hashtags"></div><div style="display:flex;justify-content:flex-end;margin-top:18px"><button class="quiet-button" data-copy="caption">Copy caption</button></div></article>
       <article class="output-card visual-card"><div class="card-heading"><span class="icon">◈</span><h2>Your visual</h2></div><div class="visual-wrap" id="visual"><div class="visual-placeholder"><strong>Your image will appear here</strong>We’re turning your idea into a visual.</div></div><div id="image-actions" hidden><a class="quiet-button" id="download-image" download="exquisite-ai-image.png" href="#">Download image</a></div></article>
     </section>
-    <footer>AI-generated. Review before relying. · <span id="expiry-info"></span></footer>
+    <footer>AI-generated. Review before relying. · <span id="expiry-info"></span> · Installable as app</footer>
   </main>
 
   <div class="paywall" id="paywall">
@@ -228,6 +232,9 @@ PAGE = r"""<!doctype html>
       finally{btn.disabled=false;}
     });
   </script>
+  <script>
+  if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
+  </script>
 </body>
 </html>"""
 
@@ -285,6 +292,37 @@ def index():
         resp.set_cookie("exquisite_uid", uid, max_age=31536000, httponly=False, samesite="Lax")
     return resp
 
+@app.get("/manifest.json")
+def manifest_json():
+    # Try static folder first
+    static_path = os.path.join(app.static_folder, "manifest.json")
+    if os.path.exists(static_path):
+        return send_from_directory(app.static_folder, "manifest.json")
+    if os.path.exists("manifest.json"):
+        with open("manifest.json") as f:
+            return Response(f.read(), mimetype="application/manifest+json")
+    # Fallback manifest
+    return jsonify({
+        "name": "Exquisite AI",
+        "short_name": "Exquisite AI",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#101018",
+        "theme_color": "#101018",
+        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/4712/4712109.png","sizes": "512x512","type":"image/png"}]
+    })
+
+@app.get("/sw.js")
+def service_worker():
+    if os.path.exists("sw.js"):
+        with open("sw.js") as f:
+            return Response(f.read(), mimetype="application/javascript")
+    static_path = os.path.join(app.static_folder, "sw.js")
+    if os.path.exists(static_path):
+        return send_from_directory(app.static_folder, "sw.js")
+    # Fallback SW
+    return Response("self.addEventListener('fetch', e=>e.respondWith(fetch(e.request)));", mimetype="application/javascript")
+
 @app.get("/health")
 def health():
     data = load_data()
@@ -309,7 +347,6 @@ def generate():
     data = load_data()
     uid = get_user_id()
     user = get_user_record(data, uid)
-
     payload = request.get_json(silent=True) or {}
     question = payload.get("question")
     if not isinstance(question, str) or not question.strip():
@@ -317,15 +354,12 @@ def generate():
     question = question.strip()
     if len(question) > MAX_QUESTION_LENGTH:
         return jsonify({"error": f"Keep under {MAX_QUESTION_LENGTH:,} chars."}), 413
-
     if not is_premium(user) and user.get("free_used", 0) >= FREE_USES:
         save_data(data)
         return jsonify({"error": f"Free limit of {FREE_USES} reached. Subscribe: Day GHS10, Weekly GHS49, Monthly GHS99. MoMo: 0533041233 - Michael Asante.", "code": "PAYWALL"}), 402
-
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return jsonify({"error": "Add GEMINI_API_KEY in Secrets."}), 503
-
     from google import genai
     from google.genai import types
     instructions = f"You are Exquisite AI. Answer directly with useful detail. Create vivid image prompt (no text), engaging TikTok caption, 3-5 hashtags. Return JSON per schema.\n\nQuestion:\n{question}"
@@ -342,11 +376,9 @@ def generate():
             raise ValueError("Incomplete content")
         if not isinstance(hashtags, list): hashtags = []
         hashtags = [t.strip() for t in hashtags if isinstance(t, str) and t.strip()][:5]
-
         if not is_premium(user):
             user["free_used"] = user.get("free_used", 0) + 1
         save_data(data)
-
         resp = jsonify({"answer": answer.strip(),"image_prompt": image_prompt.strip()[:MAX_IMAGE_PROMPT_LENGTH],"caption": caption.strip(),"hashtags": hashtags})
         resp.set_cookie("exquisite_uid", uid, max_age=31536000)
         return resp
@@ -362,12 +394,10 @@ def generate_image():
     if not isinstance(prompt, str) or not prompt.strip():
         return jsonify({"error": "Prompt required."}), 400
     prompt = prompt.strip()[:MAX_IMAGE_PROMPT_LENGTH]
-
     endpoints = [
         f"https://image.pollinations.ai/prompt/{quote(prompt, safe='')}?width=1024&height=1024&nologo=true&model=flux",
         f"https://gen.pollinations.ai/image/{quote(prompt, safe='')}?model=flux&width=1024&height=1024"
     ]
-
     last_error = ""
     for image_url in endpoints:
         try:
@@ -383,7 +413,6 @@ def generate_image():
         except Exception as e:
             last_error = str(e)[:200]
             continue
-
     return jsonify({"error": f"Image service busy, try again. {last_error}"}), 502
 
 @app.post("/api/request-payment")
