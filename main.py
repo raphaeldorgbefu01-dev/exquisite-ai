@@ -82,7 +82,7 @@ PAGE = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Exquisite AI</title>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#101018">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/4712/4712109.png">
   <style>
