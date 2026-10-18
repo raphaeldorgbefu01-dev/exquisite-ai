@@ -99,12 +99,41 @@ def generate():
     uid = get_user_id()
     user = get_user_record(data, uid)
     if not is_premium(user) and user.get("free_used",0) >= FREE_USES:
-        return jsonify({"error":"Free limit reached"}), 403
+        return jsonify({"error":"Free limit reached - please upgrade to continue"}), 403
+    
     j = request.get_json() or {}
     prompt = j.get("prompt","")[:2000]
+    if not prompt:
+        return jsonify({"error":"Empty prompt"}), 400
+    
+    # GEMINI AI
+    gemini_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+    answer = ""
+    if gemini_key:
+        try:
+            # Using Gemini 1.5 Flash - fast and cheap
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}]
+            }
+            r = http_requests.post(url, json=payload, timeout=30)
+            jr = r.json()
+            # Parse Gemini response
+            if "candidates" in jr and len(jr["candidates"]) > 0:
+                answer = jr["candidates"][0]["content"]["parts"][0]["text"]
+            else:
+                answer = f"Gemini Error: {jr}"
+        except Exception as e:
+            answer = f"AI Error: {str(e)}"
+            logging.error(f"Gemini error: {e}")
+    else:
+        answer = f"[Set GEMINI_API_KEY in Render] You asked: {prompt}"
+
     user["free_used"] = user.get("free_used",0)+1
     save_data(data)
-    return jsonify({"answer": f"[DEMO] You asked: {prompt}"})
+    resp = make_response(jsonify({"answer": answer}))
+    resp.set_cookie("exquisite_uid", uid, max_age=60*60*24*365)
+    return resp
 
 @app.route("/api/paystack/init", methods=["POST"])
 def paystack_init():
