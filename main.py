@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 FREE_USES = 25
 DATA_FILE = "exquisite_data.json"
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "CHANGE_ME_SET_IN_RENDER")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Exq-8qx1Wn6x9SgU-Ghana2026!")
 PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
 PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
 os.makedirs("uploads", exist_ok=True)
@@ -43,31 +43,32 @@ PLANS = {
     "monthly": {"label":"Monthly","price":99,"days":30,"tag":"30 days - BEST VALUE","kobo":9900},
 }
 
-PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Exquisite AI</title><script src="https://js.paystack.co/v1/inline.js"></script>
-<style>:root{color-scheme:dark;--bg:#101018;--panel:#191923;--line:rgba(255,255,255,.1);--text:#f5f2fa;--muted:#a4a1b2;--violet:#bda0ff;--mint:#a8f0d5;font-family:Inter,system-ui,sans-serif}*{box-sizing:border-box}body{min-height:100vh;margin:0;color:var(--text);background:var(--bg)}.shell{width:min(1050px,calc(100% - 40px));margin:0 auto;padding:26px 0 72px}header{display:flex;justify-content:space-between;align-items:center}.brand{display:flex;align-items:center;gap:12px;font-weight:700}.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:linear-gradient(140deg,var(--violet),var(--mint));color:#17121f;font-weight:900}.service-tag{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:12px}.hero{max-width:730px;margin:72px auto 34px;text-align:center}.eyebrow{color:var(--mint);font-size:12px;font-weight:750;letter-spacing:.18em;text-transform:uppercase}h1{font-size:42px;margin:12px 0}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0}button{background:var(--violet);color:#111;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}input,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#111;color:#fff}</style></head><body><div class="shell"><header><div class="brand"><div class="brand-mark">E</div> Exquisite AI</div><div class="service-tag" id="quota">Loading...</div></header><div class="hero"><div class="eyebrow">Premium AI Content Studio</div><h1>Create viral content in seconds</h1><p style="color:var(--muted)">25 free uses. Upgrade with Paystack.</p></div><div class="card"><textarea id="prompt" rows="4" placeholder="Ask anything..."></textarea><br><br><button onclick="generate()">Generate</button><div id="result" style="margin-top:16px;white-space:pre-wrap"></div></div><div class="card"><h3>Upgrade</h3><div id="plans"></div></div></div>
+PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Exquisite AI - Where Ideas Take Flight</title><script src="https://js.paystack.co/v1/inline.js"></script>
+<style>:root{color-scheme:dark;--bg:#101018;--panel:#191923;--line:rgba(255,255,255,.1);--text:#f5f2fa;--muted:#a4a1b2;--violet:#bda0ff;--mint:#a8f0d5;font-family:Inter,system-ui,sans-serif}*{box-sizing:border-box}body{min-height:100vh;margin:0;color:var(--text);background:radial-gradient(900px 500px at 15% -10%, rgba(189,160,255,.22), transparent), radial-gradient(700px 400px at 85% 5%, rgba(168,240,213,.14), transparent), var(--bg)}.shell{width:min(1050px,calc(100% - 40px));margin:0 auto;padding:26px 0 72px}header{display:flex;justify-content:space-between;align-items:center}.brand{display:flex;align-items:center;gap:12px;font-weight:800}.brand-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:linear-gradient(140deg,var(--violet),var(--mint));color:#17121f;font-weight:900}.service-tag{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:12px}.hero{max-width:820px;margin:82px auto 38px;text-align:center}.eyebrow{color:var(--mint);font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase}h1{font-size:52px;line-height:1.02;margin:18px 0;letter-spacing:-.03em;background:linear-gradient(180deg,#fff 20%,#b8b0d0 90%);-webkit-background-clip:text;background-clip:text;color:transparent}.hero p{color:var(--muted);font-size:17px;line-height:1.7;max-width:620px;margin:0 auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;margin:20px 0;box-shadow:0 12px 40px rgba(0,0,0,.35)}button{background:var(--violet);color:#111;border:0;border-radius:12px;padding:13px 22px;font-weight:800;cursor:pointer;transition:.2s}button:hover{transform:translateY(-1px);filter:brightness(1.08)}input,textarea{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:#111117;color:#fff;font-family:inherit;font-size:15px}textarea:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(189,160,255,.15)}#result{line-height:1.8;font-size:15px;white-space:pre-wrap}</style></head><body><div class="shell"><header><div class="brand"><div class="brand-mark">E</div> Exquisite AI</div><div class="service-tag" id="quota">Loading...</div></header><div class="hero"><div class="eyebrow">Where Ideas Transform Into Dreams</div><h1>Where Ideas Take Flight</h1><p>Transform a whisper of an idea into a dream the world can't ignore. Viral captions, scripts & stories in seconds.</p></div><div class="card"><textarea id="prompt" rows="4" placeholder="What's your idea? e.g. 'A luxury Ghanaian brand that turns fashion into dreams...'"></textarea><br><br><button onclick="generate()">✨ Let It Take Flight</button><div id="result" style="margin-top:20px"></div></div><div class="card"><h3 style="margin-top:0">Unlock Unlimited Flight</h3><p style="color:var(--muted);font-size:13px">Go premium and turn every idea into reality</p><div id="plans" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px"></div></div></div>
 <script>
 let PUBLIC_KEY="{{PUBLIC_KEY}}";
 async function refreshQuota(){
   let r=await fetch('/api/me'); let d=await r.json();
-  document.getElementById('quota').innerText=d.is_premium ? 'Premium: '+d.plan : 'Free left: '+d.remaining;
+  document.getElementById('quota').innerText=d.is_premium ? '✨ Premium: '+d.plan : 'Free: '+d.remaining+' left';
   let p=document.getElementById('plans'); p.innerHTML='';
   Object.entries(d.plans).forEach(([k,v])=>{
-    let b=document.createElement('button'); b.innerText=v.label+' - GHS '+v.price+' ('+v.tag+')'; b.style.margin='6px';
+    let b=document.createElement('button'); b.innerText=v.label+' - GHS '+v.price+' ('+v.tag+')'; b.style.margin='4px';
     b.onclick=()=>pay(k); p.appendChild(b);
   });
 }
 async function generate(){
-  let pr=document.getElementById('prompt').value; if(!pr) return alert('Type something');
-  document.getElementById('result').innerText='Generating...';
+  let pr=document.getElementById('prompt').value; if(!pr) return alert('What is your idea?');
+  let resEl=document.getElementById('result');
+  resEl.innerText='✨ Your idea is taking flight...';
   let r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:pr})});
-  let d=await r.json(); document.getElementById('result').innerText=d.answer||JSON.stringify(d);
+  let d=await r.json(); resEl.innerText=d.answer||d.error||JSON.stringify(d);
   refreshQuota();
 }
 function pay(plan){
-  if(!PUBLIC_KEY){ alert('Paystack not configured'); return; }
+  if(!PUBLIC_KEY){ alert('Paystack not configured - set keys in Render'); return; }
   fetch('/api/paystack/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})}).then(r=>r.json()).then(d=>{
     if(d.error) return alert(d.error);
-    var handler=PaystackPop.setup({key:PUBLIC_KEY,email:d.email||'user@exquisite.ai',amount:d.kobo,currency:'GHS',ref:d.reference,callback:function(resp){ fetch('/api/paystack/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:resp.reference})}).then(r=>r.json()).then(v=>{ alert(v.message||'Verified!'); refreshQuota(); }); },onClose:function(){ alert('Payment closed'); }});
+    var handler=PaystackPop.setup({key:PUBLIC_KEY,email:d.email||'user@exquisite.ai',amount:d.kobo,currency:'GHS',ref:d.reference,callback:function(resp){ fetch('/api/paystack/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:resp.reference})}).then(r=>r.json()).then(v=>{ alert(v.message||'Verified! Welcome to premium.'); refreshQuota(); }); },onClose:function(){ alert('Payment closed'); }});
     handler.openIframe();
   });
 }
@@ -100,35 +101,31 @@ def generate():
     user = get_user_record(data, uid)
     if not is_premium(user) and user.get("free_used",0) >= FREE_USES:
         return jsonify({"error":"Free limit reached - please upgrade to continue"}), 403
-    
     j = request.get_json() or {}
     prompt = j.get("prompt","")[:2000]
     if not prompt:
         return jsonify({"error":"Empty prompt"}), 400
-    
-    # GEMINI AI
     gemini_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
     answer = ""
     if gemini_key:
-        try:
-            # Using Gemini 1.5 Flash - fast and cheap
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
-            r = http_requests.post(url, json=payload, timeout=30)
-            jr = r.json()
-            # Parse Gemini response
-            if "candidates" in jr and len(jr["candidates"]) > 0:
-                answer = jr["candidates"][0]["content"]["parts"][0]["text"]
-            else:
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
+        for model in models_to_try:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                payload = {"contents": [{"parts": [{"text": f"You are Exquisite AI - Where Ideas Take Flight. You transform ideas into dreams. Make this idea magical, inspirational and viral: {prompt}"}]}]}
+                r = http_requests.post(url, json=payload, timeout=30)
+                jr = r.json()
+                if "candidates" in jr and len(jr["candidates"]) > 0:
+                    answer = jr["candidates"][0]["content"]["parts"][0]["text"]
+                    break
+                if "NOT_FOUND" in str(jr): continue
                 answer = f"Gemini Error: {jr}"
-        except Exception as e:
-            answer = f"AI Error: {str(e)}"
-            logging.error(f"Gemini error: {e}")
+                break
+            except Exception as e:
+                if model == models_to_try[-1]: answer = f"AI Error: {str(e)}"
+                continue
     else:
         answer = f"[Set GEMINI_API_KEY in Render] You asked: {prompt}"
-
     user["free_used"] = user.get("free_used",0)+1
     save_data(data)
     resp = make_response(jsonify({"answer": answer}))
@@ -172,44 +169,30 @@ def paystack_verify():
         user["expiry"] = int(time.time()) + plan["days"]*24*3600
         data.setdefault("payments",[]).append({"uid":uid,"plan":plan_key,"ref":ref,"time":int(time.time())})
         save_data(data)
-        return jsonify({"message": f"Premium activated! {plan['label']}"})
+        return jsonify({"message": f"Premium activated! {plan['label']} - Let your ideas fly!"})
     except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route("/admin")
 def admin():
     pwd = request.args.get("password") or request.args.get("p")
-    if pwd != ADMIN_PASSWORD:
-        return "<body style=\"background:#101018;color:#fff;font-family:sans-serif;display:grid;place-items:center;height:100vh\"><form><h2>Admin Login</h2><input type=\"password\" name=\"password\" placeholder=\"Enter admin password\" style=\"padding:12px;border-radius:8px;width:260px;background:#222;color:#fff;border:1px solid #444\"><button style=\"padding:12px;background:#bda0ff;border:0;border-radius:8px;font-weight:700;margin-left:6px\">Login</button></form></body>", 401
+    if pwd != ADMIN_PASSWORD: return "<body style=\"background:#101018;color:#fff;font-family:sans-serif;display:grid;place-items:center;height:100vh\"><form><h2>Admin Login</h2><input type=\"password\" name=\"password\" placeholder=\"Enter admin password\" style=\"padding:12px;border-radius:8px;width:260px;background:#222;color:#fff;border:1px solid #444\"><button style=\"padding:12px;background:#bda0ff;border:0;border-radius:8px;font-weight:700;margin-left:6px\">Login</button></form></body>", 401
     d = load_data()
-    users_html = ""
-    for uid, u in list(d.get("users",{}).items())[-100:][::-1]:
-        is_p = "YES" if u.get("expiry",0) > time.time() else "NO"
-        users_html += f"<tr><td style='font-size:11px'>{uid[:8]}...</td><td>{u.get('free_used',0)}/{FREE_USES}</td><td>{is_p}</td><td>{u.get('plan','-')}</td><td>{time.strftime('%Y-%m-%d %H:%M', time.localtime(u.get('created',0)))}</td><td><a href='/admin/reset?uid={uid}&password={pwd}'>Reset</a> | <a href='/admin/give?uid={uid}&days=7&password={pwd}'>+7d</a> | <a href='/admin/give?uid={uid}&days=30&password={pwd}'>+30d</a></td></tr>"
-    pays_html = ""
-    for p in list(d.get("payments",[]))[-100:][::-1]:
-        pays_html += f"<tr><td>{p.get('uid','')[:8]}</td><td>{p.get('plan')}</td><td>{p.get('ref')}</td><td>{time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('time',0)))}</td></tr>"
-    return f"<html><head><title>Admin - Exquisite</title><style>body{{background:#101018;color:#f5f2fa;font-family:Inter,sans-serif;padding:20px}}table{{width:100%;border-collapse:collapse;margin:12px 0}}th,td{{border:1px solid rgba(255,255,255,.1);padding:8px;text-align:left}}th{{background:#191923}}a{{color:#bda0ff}}.card{{background:#191923;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px;margin:16px 0}}</style></head><body><h1>Exquisite Admin</h1><p>Total users: {len(d.get('users',{}))} | Total payments: {len(d.get('payments',[]))}</p><div class='card'><h3>Users (last 100)</h3><table><tr><th>UID</th><th>Used</th><th>Premium</th><th>Plan</th><th>Created</th><th>Actions</th></tr>{users_html}</table></div><div class='card'><h3>Payments (last 100)</h3><table><tr><th>UID</th><th>Plan</th><th>Ref</th><th>Time</th></tr>{pays_html}</table></div><div class='card'><a href='/admin/clear?password={pwd}' onclick=\"return confirm('Delete ALL data?')\">Clear all data</a> | <a href='/'>Home</a></div></body></html>"
+    users_html = "".join([f"<tr><td style='font-size:11px'>{uid[:8]}...</td><td>{u.get('free_used',0)}/{FREE_USES}</td><td>{'YES' if u.get('expiry',0) > time.time() else 'NO'}</td><td>{u.get('plan','-')}</td><td>{time.strftime('%Y-%m-%d %H:%M', time.localtime(u.get('created',0)))}</td><td><a href='/admin/reset?uid={uid}&password={pwd}'>Reset</a> | <a href='/admin/give?uid={uid}&days=7&password={pwd}'>+7d</a> | <a href='/admin/give?uid={uid}&days=30&password={pwd}'>+30d</a></td></tr>" for uid,u in list(d.get("users",{}).items())[-100:][::-1]])
+    pays_html = "".join([f"<tr><td>{p.get('uid','')[:8]}</td><td>{p.get('plan')}</td><td>{p.get('ref')}</td><td>{time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('time',0)))}</td></tr>" for p in list(d.get("payments",[]))[-100:][::-1]])
+    return f"<html><head><title>Admin - Exquisite</title><style>body{{background:#101018;color:#f5f2fa;font-family:Inter,sans-serif;padding:20px}}table{{width:100%;border-collapse:collapse;margin:12px 0}}th,td{{border:1px solid rgba(255,255,255,.1);padding:8px;text-align:left}}th{{background:#191923}}a{{color:#bda0ff}}.card{{background:#191923;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px;margin:16px 0}}</style></head><body><h1>Exquisite Admin - Where Ideas Take Flight</h1><p>Total users: {len(d.get('users',{}))} | Total payments: {len(d.get('payments',[]))}</p><div class='card'><h3>Users (last 100)</h3><table><tr><th>UID</th><th>Used</th><th>Premium</th><th>Plan</th><th>Created</th><th>Actions</th></tr>{users_html}</table></div><div class='card'><h3>Payments (last 100)</h3><table><tr><th>UID</th><th>Plan</th><th>Ref</th><th>Time</th></tr>{pays_html}</table></div><div class='card'><a href='/admin/clear?password={pwd}' onclick=\"return confirm('Delete ALL data?')\">Clear all data</a> | <a href='/'>Home</a></div></body></html>"
 
 @app.route("/admin/reset")
 def admin_reset():
     if request.args.get("password") != ADMIN_PASSWORD: return "Unauthorized", 401
-    uid = request.args.get("uid")
-    data = load_data()
-    if uid in data.get("users",{}):
-        data["users"][uid]["free_used"]=0
-        save_data(data)
+    uid = request.args.get("uid"); data = load_data()
+    if uid in data.get("users",{}): data["users"][uid]["free_used"]=0; save_data(data)
     return redirect(f"/admin?password={ADMIN_PASSWORD}")
 
 @app.route("/admin/give")
 def admin_give():
     if request.args.get("password") != ADMIN_PASSWORD: return "Unauthorized", 401
-    uid = request.args.get("uid")
-    days = int(request.args.get("days","7"))
-    data = load_data()
-    if uid in data.get("users",{}):
-        data["users"][uid]["expiry"]=int(time.time())+days*24*3600
-        data["users"][uid]["plan"]=f"admin_{days}d"
-        save_data(data)
+    uid = request.args.get("uid"); days = int(request.args.get("days","7")); data = load_data()
+    if uid in data.get("users",{}): data["users"][uid]["expiry"]=int(time.time())+days*24*3600; data["users"][uid]["plan"]=f"admin_{days}d"; save_data(data)
     return redirect(f"/admin?password={ADMIN_PASSWORD}")
 
 @app.route("/admin/clear")
