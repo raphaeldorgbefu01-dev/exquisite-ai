@@ -56,7 +56,7 @@ function setType(t){
   let ph = {
     all: "Search... e.g. 'A luxury Ghanaian brand that turns fashion into dream'",
     captions: "Search viral captions... e.g. 'Ghana fashion week caption'",
-    scripts: "Search scripts... e.g. '30s TikTok ad for luxury dress'",
+    scripts: "Search scripts... e.g. '30s TikTok ad for luxury dress - outstanding'",
     stories: "Search stories... e.g. 'Brand story for fashion dream'",
     images: "Describe image... e.g. 'Luxury Ghanaian model in kente, dreamy, studio light, 4k'"
   };
@@ -118,7 +118,6 @@ def me():
     user = get_user_record(data, uid)
     return jsonify({"uid": uid,"remaining": remaining_free(user),"is_premium": is_premium(user),"plan": user.get("plan"),"expiry": user.get("expiry"),"plans": PLANS})
 
-# --- THIS IS YOUR REQUESTED FUNCTION - NOW WITH IMAGE MODE ---
 @app.route("/api/generate", methods=["POST"])
 def generate():
     data = load_data()
@@ -141,65 +140,69 @@ def generate():
         "captions": "You are VIRAL CAPTIONS expert. Create 5-7 short, catchy viral captions with hashtags and emojis for:",
         "scripts": "You are VIRAL SCRIPT expert. Write a 30-60 sec outstanding video script like a TikTok script, with hook, body, CTA for:",
         "stories": "You are BRAND STORY expert. Write an inspirational, luxurious brand story for:",
-        "images": "You are IMAGE PROMPT expert. Enhance this image idea into a detailed, beautiful, high-quality prompt for AI image generation:"
+        "images": "You are IMAGE PROMPT expert. Enhance this image idea into a detailed, beautiful, high-quality prompt:"
     }
     instruction = type_instruction.get(search_type, type_instruction["all"])
 
-    # IMAGE MODE - Generate image + enhanced prompt
     if search_type == "images":
         try:
-            # Enhance prompt with Gemini if key available
             enhanced_prompt = prompt
             if gemini_key:
                 try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-                    payload = {"contents": [{"parts": [{"text": f"{instruction} {prompt}. Make it detailed, photorealistic, 4k, luxury, Ghanaian style if relevant. Return ONLY the enhanced prompt, no extra text."}]}]}
+                    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                    payload = {"contents": [{"parts": [{"text": f"{instruction} {prompt}. Return ONLY enhanced prompt."}]}]}
                     r = http_requests.post(url, json=payload, timeout=20)
                     jr = r.json()
                     if "candidates" in jr:
                         enhanced_prompt = jr["candidates"][0]["content"]["parts"][0]["text"].strip()
                 except:
                     pass
-            
-            # Generate image using Pollinations (free, no key, works instantly)
-            # This creates real AI images
             safe_prompt = urllib.parse.quote(enhanced_prompt[:500])
             image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&model=flux&seed={int(time.time())}"
             answer = f"✨ Dream Image Created!\n\nEnhanced Prompt: {enhanced_prompt}\n\nYour image is below:"
         except Exception as e:
-            answer = f"Image generation failed: {str(e)}"
+            answer = f"Image failed: {str(e)}"
     else:
-        # TEXT MODES - captions, scripts, stories, all
         if not gemini_key:
             answer = "⚠️ GEMINI_API_KEY not set in Render → Environment"
         else:
-            models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-pro"]
+            working_model = None
+            try:
+                list_url = f"https://generativelanguage.googleapis.com/v1/models?key={gemini_key}"
+                lr = http_requests.get(list_url, timeout=15)
+                lj = lr.json()
+                if "models" in lj:
+                    for m in lj["models"]:
+                        if "generateContent" in m.get("supportedGenerationMethods", []) and "flash" in m.get("name",""):
+                            working_model = m.get("name","").replace("models/","")
+                            break
+            except Exception as e:
+                logging.error(f"List models failed: {e}")
+
+            models_to_try = []
+            if working_model:
+                models_to_try.append(working_model)
+            models_to_try += ["gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-2.0-flash"]
+
             last_error = ""
             for model in models_to_try:
                 try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
-                    full_prompt = f"{instruction} {prompt}. Make it searchable, viral, outstanding, Ghanaian-friendly, magical."
+                    url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={gemini_key}"
+                    full_prompt = f"{instruction} {prompt}. Make it viral, outstanding, Ghanaian-friendly, magical."
                     payload = {"contents": [{"parts": [{"text": full_prompt}]}]}
                     r = http_requests.post(url, json=payload, timeout=30)
                     jr = r.json()
-                    
-                    if "candidates" in jr:
+                    if "candidates" in jr and len(jr["candidates"]) > 0:
                         answer = jr["candidates"][0]["content"]["parts"][0]["text"]
                         if answer.strip():
                             break
-                    last_error = jr.get("error", {}).get("message", str(jr))
-                    if "NOT_FOUND" in str(jr) or "not found" in str(jr).lower():
-                        continue
-                    else:
-                        if "candidates" not in jr:
-                            answer = f"Gemini says: {last_error}"
-                            break
+                    last_error = str(jr)[:800]
                 except Exception as e:
                     last_error = str(e)
                     continue
             
             if not answer:
-                answer = f"❌ All models failed. Last: {last_error}. Get new key: https://aistudio.google.com/apikey"
+                answer = f"❌ Still failing: {last_error}. Try new key: https://aistudio.google.com/apikey"
 
     user["free_used"] = user.get("free_used",0)+1
     save_data(data)
