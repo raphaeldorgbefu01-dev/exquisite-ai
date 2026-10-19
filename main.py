@@ -12,12 +12,19 @@ PAYSTACK_PUBLIC_KEY = os.environ.get("PAYSTACK_PUBLIC_KEY", "")
 PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
 
 def load_data():
-    if not os.path.exists(DATA_FILE): return {"users": {}, "payments": []}
+    if not os.path.exists(DATA_FILE): 
+        return {"users": {}, "payments": []}
     try:
-        with open(DATA_FILE, "r") as f: return json.load(f)
-    except: return {"users": {}, "payments": []}
-def save_data(d):
-    with open(DATA_FILE, "w") as f: json.dump(f, d, indent=2)
+        with open(DATA_FILE, "r") as f: 
+            return json.load(f)
+    except:
+        return {"users": {}, "payments": []}
+
+def save_data(data_dict):
+    # FIXED: was json.dump(f,d) - now correct order
+    with open(DATA_FILE, "w") as f:
+        json.dump(data_dict, f, indent=2)
+
 def get_user_id():
     uid = request.cookies.get("exquisite_uid") or request.headers.get("X-User-Id")
     if not uid: uid = str(uuid.uuid4())
@@ -44,13 +51,13 @@ let PUBLIC_KEY="{{PUBLIC_KEY}}";
 let currentType="all";
 function showButton(){let b=document.getElementById('flightBtn');b.classList.remove('hidden');b.style.display='inline-block';}
 function hideButton(){let b=document.getElementById('flightBtn');b.classList.add('hidden');setTimeout(()=>{if(b.classList.contains('hidden'))b.style.display='none';},200);}
-function setType(t){currentType=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');let ph={all:"Ask anything... e.g. 'What is blockchain in simple words?'",captions:"Viral captions for...",scripts:"TikTok script for...",stories:"Brand story for...",images:"Luxury Ghanaian model in kente, 4k",videos:"Cinematic runway, slow motion"};document.getElementById('prompt').placeholder=ph[t]||ph.all;let pr=document.getElementById('prompt').value.trim();if(pr.length>2){hideButton();generate();}}
+function setType(t){currentType=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');let ph={all:"Ask anything... e.g. 'What is blockchain?'",captions:"Viral captions for...",scripts:"TikTok script for...",stories:"Brand story for...",images:"Luxury Ghanaian model in kente, 4k",videos:"Cinematic runway, slow motion"};document.getElementById('prompt').placeholder=ph[t]||ph.all;let pr=document.getElementById('prompt').value.trim();if(pr.length>2){hideButton();generate();}}
 async function refreshQuota(){let r=await fetch('/api/me');let d=await r.json();document.getElementById('quota').innerText=d.is_premium?'✨ Premium: '+d.plan:'Free: '+d.remaining+' left';let p=document.getElementById('plans');p.innerHTML='';Object.entries(d.plans).forEach(([k,v])=>{let b=document.createElement('button');b.className='primary';b.innerText=v.label+' - GHS '+v.price;b.style.margin='4px';b.onclick=()=>pay(k);p.appendChild(b);});}
 function copyResult(){let t=document.getElementById('result').innerText;navigator.clipboard.writeText(t);alert('Copied!');}
 async function generate(){
  let pr=document.getElementById('prompt').value; if(!pr){alert('Type something');return;}
  let resEl=document.getElementById('result');
- resEl.innerHTML='🧠 Explaining simply with modern facts... (if stuck >10s, check Gemini key)';
+ resEl.innerHTML='🧠 Explaining simply with modern facts...';
  hideButton();
  try{
   let controller = new AbortController(); let timeout = setTimeout(()=>controller.abort(), 25000);
@@ -58,16 +65,16 @@ async function generate(){
   clearTimeout(timeout);
   let d=await r.json();
   if(d.image_url){
-    resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}<br><br><img src="${d.image_url}" loading="lazy"><br><a href="${d.image_url}" target="_blank" style="color:#bda0ff">Open full</a>`;
+    resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}<br><br><img src="${d.image_url}" loading="lazy">`;
   }else{
-    resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${(d.answer||d.error||'Error').replace(/\\n/g,'<br>')}`;
+    resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${(d.answer||d.error||'Error')}`;
   }
  }catch(e){
-  resEl.innerHTML=`❌ Request timed out or failed: ${e}.<br><br>Your Render free server might be sleeping or Gemini key invalid. Please refresh page and try again. If persists, check Render logs.`;
+  resEl.innerHTML=`❌ Failed: ${e}. Refresh and try again.`;
  }
  setTimeout(refreshQuota, 500);
 }
-function pay(plan){if(!PUBLIC_KEY){alert('Paystack keys not set');return;}fetch('/api/paystack/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})}).then(r=>r.json()).then(d=>{if(d.error)return alert(d.error);var h=PaystackPop.setup({key:PUBLIC_KEY,email:d.email,amount:d.kobo,currency:'GHS',ref:d.reference,callback:function(resp){fetch('/api/paystack/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:resp.reference})}).then(r=>r.json()).then(v=>{alert(v.message);refreshQuota();});},onClose:function(){}});h.openIframe();});}
+function pay(plan){if(!PUBLIC_KEY){alert('Paystack not set');return;}fetch('/api/paystack/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})}).then(r=>r.json()).then(d=>{if(d.error)return alert(d.error);var h=PaystackPop.setup({key:PUBLIC_KEY,email:d.email,amount:d.kobo,currency:'GHS',ref:d.reference,callback:function(resp){fetch('/api/paystack/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:resp.reference})}).then(r=>r.json()).then(v=>{alert(v.message);refreshQuota();});},onClose:function(){}});h.openIframe();});}
 refreshQuota();
 </script></body></html>
 """
@@ -89,33 +96,32 @@ def me():
 def generate_api():
     data = load_data(); uid = get_user_id(); user = get_user_record(data, uid)
     if not is_premium(user) and user.get("free_used",0) >= FREE_USES:
-        return jsonify({"answer":"Free limit reached - please upgrade to continue."}), 403
+        return jsonify({"answer":"Free limit reached - please upgrade"}), 403
     j = request.get_json() or {}
     prompt = (j.get("prompt") or "")[:2000]
     search_type = j.get("type","all")
-    if not prompt: return jsonify({"answer":"Please type something"}), 400
+    if not prompt: return jsonify({"answer":"Type something"}), 400
 
     gemini_key = os.environ.get("GEMINI_API_KEY","") or os.environ.get("GOOGLE_API_KEY","")
     answer = ""; image_url = None
 
-    # SIMPLE fallback if Gemini fails - so it NEVER hangs 40 minutes
     FALLBACK_ALL = f"""**Simple Definition:**
 AI (Artificial Intelligence) is computer software that learns and thinks like a human.
 
 **Easy Explanation:**
-Imagine teaching a child to recognize kente cloth. You show many examples until they learn. AI works the same - we show computers millions of examples (photos, text) and they learn to answer, write, or create images. Example in Ghana: AI can help a fashion designer in Accra create new kente patterns automatically.
+Imagine teaching a child to recognize kente cloth. You show many examples until they learn. AI works the same - we show computers millions of examples and they learn to answer, write, or create images. Example: AI can help a fashion designer in Accra create new kente patterns automatically.
 
 **Most Known Modern Facts (2024-2026):**
-• ChatGPT has over 200M weekly users in 2026
-• AI can now generate 4K ultra-realistic fashion photos in seconds
-• Ghana is using AI for market price prediction and mobile money fraud detection
-• Modern AI models like Gemini 1.5 can understand text, images, and video together
-• AI video generation (Sora, Runway) now creates 20-second cinematic clips
+• ChatGPT has 200M+ weekly users in 2026
+• AI can generate 4K ultra-realistic photos in seconds
+• Ghana uses AI for market price prediction & mobile money fraud detection
+• Modern AI like Gemini 1.5 understands text, images, video together
+• AI video (Sora, Runway) creates 20s cinematic clips
 
-**Why it matters today:**
-It saves time, makes businesses faster, and lets small brands in Ghana compete with big global brands.
+**Why it matters:**
+Saves time, makes small brands in Ghana compete with global brands.
 
-*Question was: {prompt}*"""
+Question: {prompt}"""
 
     try:
         if search_type in ["images","videos"]:
@@ -123,30 +129,28 @@ It saves time, makes businesses faster, and lets small brands in Ghana compete w
             if gemini_key:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-                    payload = {"contents":[{"parts":[{"text": f"Enhance this into detailed photorealistic prompt, only prompt: {prompt}"}]}]}
+                    payload = {"contents":[{"parts":[{"text": f"Enhance into photorealistic prompt, only prompt: {prompt}"}]}]}
                     r = http_requests.post(url, json=payload, timeout=12)
                     jr = r.json()
                     if "candidates" in jr:
                         enhanced = jr["candidates"][0]["content"]["parts"][0]["text"].strip()
                 except: pass
-            
             if search_type == "images":
-                safe = urllib.parse.quote(f"{enhanced}, ultra photorealistic, 8k, realistic skin texture, Canon EOS R5, 85mm lens, studio lighting"[:700])
+                safe = urllib.parse.quote(f"{enhanced}, ultra photorealistic, 8k, Canon EOS R5, studio lighting"[:700])
                 image_url = f"https://image.pollinations.ai/prompt/{safe}?width=1280&height=1280&nologo=true&model=flux-pro&enhance=true&seed={int(time.time())}"
-                answer = f"✨ Dream Image in 4K:\n{enhanced}"
+                answer = f"✨ {enhanced}"
             else:
                 safe = urllib.parse.quote((enhanced[:300] + ", cinematic video still, 16:9")[:700])
                 image_url = f"https://image.pollinations.ai/prompt/{safe}?width=1280&height=720&nologo=true&model=flux-pro&enhance=true&seed={int(time.time())}"
-                answer = f"🎥 Video Concept:\n{enhanced}\n\nUse this prompt in Runway/Pika to make real video."
+                answer = f"🎥 {enhanced}"
         else:
             if not gemini_key:
-                answer = FALLBACK_ALL + "\n\n⚠️ NOTE: Set GEMINI_API_KEY in Render to get live answers."
+                answer = FALLBACK_ALL + "\n\n⚠️ Set GEMINI_API_KEY in Render."
             else:
-                # DIRECT call - no models list check that was causing hang
                 instruction = {
-                    "all": "Explain in SIMPLE, EASY words a 15-year-old understands. Give: 1) Simple Definition (1 sentence), 2) Easy Explanation with Ghana example, 3) 3-5 Modern Facts 2024-2026 bullet points, 4) Why it matters. Simple English, short sentences. Query:",
+                    "all": "Explain in SIMPLE, EASY words a 15-year-old understands. Give: 1) Simple Definition, 2) Easy Explanation with Ghana example, 3) 3-5 Modern Facts 2024-2026, 4) Why it matters. Query:",
                     "captions": "Create 7 viral captions with hashtags+emojis for:",
-                    "scripts": "Write 30-60 sec TikTok script with hook, body, CTA for:",
+                    "scripts": "Write 30-60 sec TikTok script for:",
                     "stories": "Write luxurious brand story for:",
                 }.get(search_type, "Answer simply:")
 
@@ -162,23 +166,25 @@ It saves time, makes businesses faster, and lets small brands in Ghana compete w
                             if answer.strip(): break
                         last_err = str(jr)[:500]
                     except Exception as e:
-                        last_err = str(e)
-                        continue
+                        last_err = str(e); continue
                 
                 if not answer:
-                    # If Gemini fails, use fallback so user is not stuck 40 mins
                     if search_type == "all" and "what is ai" in prompt.lower():
                         answer = FALLBACK_ALL
                     else:
-                        answer = f"AI is thinking but Gemini returned error: {last_err[:300]}. \n\nFallback answer: {FALLBACK_ALL if search_type=='all' else 'Try again in 10s. If persists, check your GEMINI_API_KEY in Render Dashboard > Environment.'}"
+                        answer = f"Gemini error: {last_err[:300]}\n\n{FALLBACK_ALL if search_type=='all' else 'Try again.'}"
 
     except Exception as e:
-        answer = f"Error: {e}\n\nFallback: {FALLBACK_ALL}"
+        answer = f"Error: {e}\n\n{FALLBACK_ALL}"
 
-    user["free_used"] = user.get("free_used",0)+1; save_data(data)
+    user["free_used"] = user.get("free_used",0)+1
+    save_data(data)  # FIXED NOW
+
     out = {"answer": answer}
     if image_url: out["image_url"] = image_url
-    resp = make_response(jsonify(out)); resp.set_cookie("exquisite_uid", uid, max_age=60*60*24*365); return resp
+    resp = make_response(jsonify(out))
+    resp.set_cookie("exquisite_uid", uid, max_age=60*60*24*365)
+    return resp
 
 @app.route("/api/paystack/init", methods=["POST"])
 def paystack_init():
