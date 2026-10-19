@@ -36,95 +36,159 @@ def ask_gemini(prompt_text, api_key):
                 payload = {"contents":[{"parts":[{"text": prompt_text}]}],"generationConfig":{"temperature":0.8,"maxOutputTokens":1500}}
                 r = http_requests.post(url, json=payload, timeout=18)
                 jr = r.json()
-                # Debug print to Render logs
-                if "error" in jr:
-                    print(f"Gemini error {model}: {jr}")
                 if "candidates" in jr and jr["candidates"]:
                     return jr["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception as e:
-                print(f"Exception {model}: {e}")
-                continue
+            except: continue
     return None
 
 def smart_fallback(prompt, search_type):
     low = prompt.lower()
-    # If user asks about AI, give AI definition
-    if any(x in low for x in ["what is ai", "what is artificial"]):
-        return """**Simple Definition:** AI is software that learns and thinks like a human.
+    
+    # ALL TAB - always explanation/facts, never video concept
+    if search_type == "all":
+        if "what is ai" in low or "what is artificial" in low:
+            return """**Simple Definition:** AI is software that learns and thinks like a human.
 
-**Easy Explanation:** Like teaching a child kente patterns by showing many examples, computers learn from millions of examples. Ghana example: AI helps Accra fashion designers create new kente fast.
+**Easy Explanation:** Like teaching a child kente patterns, computers learn from millions of examples. Ghana example: AI helps Accra designers create new kente fast.
 
 **Modern Facts (2024-2026):**
 - 200M+ use ChatGPT weekly
 - AI creates 4K fashion photos in seconds
 - Ghana uses AI for market prices & MoMo fraud
 - Gemini understands text+image+video
-- AI video (Sora) creates 20-sec clips
+- Sora creates 20-sec cinematic clips
 
-**Why it matters:** Helps small Ghana brands compete globally."""
-    
-    # If prompt is about fashion/runway/video
-    if any(x in low for x in ["fashion", "runway", "kente", "model", "slow motion", "ghana"]):
-        if search_type == "videos" or "slow motion" in low or "runway" in low:
-            return f"""🎥 **Video Concept for: {prompt.title()}**
+**Why it matters:** Helps Ghana brands compete globally."""
+        else:
+            return f"""**🔍 All About: {prompt.title()}**
+
+**Simple Definition:** {prompt.title()} is a modern creative concept blending Ghanaian heritage with contemporary fashion and technology.
+
+**Easy Explanation:** Think of it like this - {prompt} showcases how Ghanaian kente and style can be presented in a cinematic way. Example: A designer in Accra films models walking in slow motion to highlight fabric flow.
+
+**Key Facts (2024-2026):**
+- Ghana fashion industry growing 15% yearly
+- Slow-motion content gets 3x more engagement on TikTok/Reels
+- Kente-inspired fashion trending globally in 2025-26
+- AI tools now help create such videos in seconds
+
+**Why It Matters:** Perfect for building a luxury Ghanaian brand that appeals globally."""
+
+    # CAPTIONS TAB - 7 captions
+    if search_type == "captions":
+        return f"""📸 **7 Viral Captions for: {prompt.title()}**
+
+1. Ghanaian elegance in slow motion 🇬🇭✨ Where kente meets runway magic #GhanaFashion
+2. Slow mo, but make it fashion 💃🏾 Kente never looked this good 🔥 #SlowMotion #Kente
+3. When tradition takes flight... ✈️ Ghana to the world! 🌍 #AfricanFashion
+4. Fabric flowing, hearts glowing 💖 This is Ghana fashion redefined #AccraStyle
+5. 60fps of pure culture 🎥✨ Watch the kente dance #RunwayMagic
+6. Luxury is in the details 👑 Slow motion kente appreciation post #LuxuryFashion
+7. From Accra with love ❤️ Ghana fashion runway - slow motion edition #ExquisiteAI
+
+**Hashtags:** #GhanaFashion #Kente #SlowMotion #Runway #AfricanLuxury #Accra #FashionReels"""
+
+    # SCRIPTS TAB - TikTok script
+    if search_type == "scripts":
+        return f"""🎬 **30-Second Script for: {prompt.title()}**
+
+**HOOK (0-3s):**
+[Visual: Kente fabric close-up in ultra slow motion]
+VO: "Stop scrolling! This is why Ghana fashion is taking over..."
+
+**BODY (3-25s):**
+[Scene 1: 0-8s] Wide shot - 3 models in kente gowns walk runway, 60fps slow mo
+VO: "Ghana fashion runway in slow motion - look at that fabric flow"
+
+[Scene 2: 8-18s] Close-up - kente patterns sparkling, model twirl
+VO: "Every thread tells a story, every color has meaning"
+
+[Scene 3: 18-25s] Slow motion twirl, eye contact
+VO: "This isn't just fashion, it's heritage in motion"
+
+**CTA (25-30s):**
+[Visual: Logo + models pose]
+VO: "Follow for more Ghana fashion magic! Comment your fave kente color!"
+
+**Music:** Afrobeats soft drums + whoosh SFX
+**Caption:** Ghana fashion slow mo hits different 🇬🇭✨ #FashionScript"""
+
+    # STORIES TAB - Brand story
+    if search_type == "stories":
+        return f"""📖 **Brand Story for: {prompt.title()}**
+
+**Heritage:**
+In the heart of Accra, where kente looms echo ancient rhythms, a vision was born - to capture Ghanaian elegance in its purest form: slow motion.
+
+**The Moment:**
+{prompt.title()} isn't just a video. It's 8 seconds where time stands still, where kente fabric flows like liquid gold, where every Ghanaian model walks not just a runway, but a journey of culture.
+
+**Emotion:**
+We believe luxury is not fast. Luxury is slow. It's the 120fps that lets you see the hand-woven detail. It's the pause that lets you feel the pride.
+
+**Mission:**
+Exquisite AI brings Ghana fashion to the world, one slow-motion frame at a time.
+
+**Tagline:** "Where Ideas Take Flight - Where Kente Flows in Slow Motion"
+
+**CTA:** Experience Ghana. Experience elegance. 🇬🇭✨"""
+
+    # VIDEOS TAB
+    if search_type == "videos":
+        return f"""🎥 **Video Concept: {prompt.title()}**
 
 **Title:** Ghana Fashion Runway - Slow Motion Elegance
 
-**Hook (0-3s):** Close-up kente fabric flowing in slow motion, text overlay "Ghana Fashion"
+**Hook (0-3s):** Close-up kente fabric flowing, text "Ghana Fashion"
 
-**Scene 1 (0-3s):** Wide shot - 3 Ghanaian models in kente-inspired gowns walking down dark runway, spotlight, 60fps slow motion, camera dolly in
+**Scene 1 (0-3s):** Wide - 3 models in kente gowns, dark runway, spotlight, 60fps slow mo, dolly in
 
-**Scene 2 (3-6s):** Medium shot - Fabric detail, model twirl, kente patterns sparkling, wind effect, 120fps ultra slow motion
+**Scene 2 (3-6s):** Medium - Fabric detail, model twirl, kente sparkling, 120fps ultra slow mo
 
-**Scene 3 (6-8s):** Close-up - Model eye contact, confident smile, camera push-in, background blurs
+**Scene 3 (6-8s):** Close - Eye contact, confident smile, push-in, background blur
 
-**Voiceover:** "Where tradition meets elegance... Exquisite Ghana fashion, redefined."
+**Voiceover:** "Where tradition meets elegance..."
 
-**Music/SFX:** Afrobeats soft drums + whoosh slow-mo effect
+**Music/SFX:** Afrobeats drums + whoosh
 
-**Enhanced AI Video Prompt for Runway/Pika:** "{prompt}, cinematic fashion runway, Ghanaian models in kente gowns, ultra slow motion 120fps, 4K, professional studio lighting, smoke, spotlight, Vogue style, 8 seconds"
+**Enhanced Prompt for Runway/Pika:** "{prompt}, cinematic fashion runway, Ghanaian models in kente gowns, ultra slow motion 120fps, 4K, studio lighting, smoke, spotlight, Vogue style, 8 seconds"
 
-**Caption/Hashtags:** 
-Ghana fashion is art in motion 🇬🇭✨ Slow mo kente elegance! #GhanaFashion #Kente #Runway #SlowMotion #ExquisiteAI #AfricanFashion #Accra"""
+**Caption:** Ghana fashion is art in motion 🇬🇭✨ #GhanaFashion #Kente"""
 
-        elif search_type == "images":
-            return f"✨ **4K Image Prompt:** {prompt}, ultra photorealistic, Ghanaian fashion model in kente, 8k, studio lighting"
-        
-        else:
-            return f"""**For: {prompt}**
-
-**Concept:** High-fashion Ghanaian runway showcase in slow motion highlighting kente heritage.
-
-**Why it works:** Slow motion emphasizes fabric movement and craftsmanship - perfect for luxury branding.
-
-**Modern Facts:**
-- Ghana fashion market growing 15% yearly
-- Slow-mo Reels get 3x more engagement
-- Kente is trending globally in 2025-2026
-
-**How to use:** Use Videos tab for storyboard, Images tab for 4K photos."""
-
-    # Default generic
-    return f"""**Answer for: {prompt}**
-
-This is a creative concept for "{prompt}".
-
-**Simple Breakdown:** Your idea about {prompt} can be turned into viral content.
-
-**Modern Tip (2024-2026):** AI tools now create this in seconds - use our Images/Videos tabs.
-
-**Why it matters:** Great for Ghanaian brands to go global fast."""
+    # IMAGES TAB
+    return f"✨ **4K Image Prompt:** {prompt}, ultra photorealistic, Ghanaian fashion model, 8k, studio lighting"
 
 PLANS = {"day": {"label":"Day","price":10,"kobo":1000,"days":1}, "weekly": {"label":"Weekly","price":49,"kobo":4900,"days":7}, "monthly": {"label":"Monthly","price":99,"kobo":9900,"days":30}}
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Exquisite AI</title><script src="https://js.paystack.co/v1/inline.js"></script>
-<style>body{margin:0;background:#101018;color:#f5f2fa;font-family:Inter,sans-serif}.shell{width:min(1050px,calc(100% - 40px));margin:0 auto;padding:26px 0}.card{background:#191923;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;margin:20px 0}button.primary{background:#bda0ff;color:#111;border:0;border-radius:12px;padding:13px 22px;font-weight:800;cursor:pointer}button.primary.hidden{display:none!important}textarea{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#111117;color:#fff;font-size:15px}.tab{border:1px solid rgba(255,255,255,.12);background:#181825;color:#a4a1b2;padding:9px 15px;border-radius:999px;font-size:13px;cursor:pointer;margin:2px}.tab.active{background:#bda0ff;color:#111}#result{line-height:1.8;white-space:pre-wrap;background:#111117;border-radius:12px;padding:16px;min-height:60px;position:relative}.copy-btn{position:absolute;top:8px;right:8px;background:#222;border:1px solid rgba(255,255,255,.12);color:#a4a1b2;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}</style></head><body><div class="shell"><h1 style="text-align:center">Where Ideas Take Flight</h1><div style="text-align:center"><button class="tab active" id="tab-all" onclick="setType('all')">🔍 All</button><button class="tab" id="tab-captions" onclick="setType('captions')">📸 Captions</button><button class="tab" id="tab-scripts" onclick="setType('scripts')">🎬 Scripts</button><button class="tab" id="tab-stories" onclick="setType('stories')">📖 Stories</button><button class="tab" id="tab-images" onclick="setType('images')">🖼️ Images</button><button class="tab" id="tab-videos" onclick="setType('videos')">🎥 Videos</button></div><div class="card"><textarea id="prompt" rows="4" placeholder="Ghana fashion runway slow motion"></textarea><br><br><button class="primary" id="flightBtn" onclick="generate()">✨ Let It Take Flight</button><div id="result" style="margin-top:20px">Results will appear here...</div></div><div class="card"><h3>Unlock Unlimited</h3><div id="plans"></div><div id="quota" style="margin-top:10px;color:#a4a1b2"></div></div></div>
+<style>body{margin:0;background:#101018;color:#f5f2fa;font-family:Inter,sans-serif}.shell{width:min(1050px,calc(100% - 40px));margin:0 auto;padding:26px 0}.card{background:#191923;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;margin:20px 0}button.primary{background:#bda0ff;color:#111;border:0;border-radius:12px;padding:13px 22px;font-weight:800;cursor:pointer}.tab{border:1px solid rgba(255,255,255,.12);background:#181825;color:#a4a1b2;padding:9px 15px;border-radius:999px;font-size:13px;cursor:pointer;margin:2px}.tab.active{background:#bda0ff;color:#111}#result{line-height:1.8;white-space:pre-wrap;background:#111117;border-radius:12px;padding:16px;min-height:60px;position:relative}.copy-btn{position:absolute;top:8px;right:8px;background:#222;border:1px solid rgba(255,255,255,.12);color:#a4a1b2;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}</style></head><body><div class="shell"><h1 style="text-align:center">Where Ideas Take Flight</h1><div style="text-align:center"><button class="tab active" id="tab-all" onclick="setType('all')">🔍 All</button><button class="tab" id="tab-captions" onclick="setType('captions')">📸 Captions</button><button class="tab" id="tab-scripts" onclick="setType('scripts')">🎬 Scripts</button><button class="tab" id="tab-stories" onclick="setType('stories')">📖 Stories</button><button class="tab" id="tab-images" onclick="setType('images')">🖼️ Images</button><button class="tab" id="tab-videos" onclick="setType('videos')">🎥 Videos</button></div><div class="card"><textarea id="prompt" rows="4" placeholder="Ghana fashion runway slow motion"></textarea><br><br><button class="primary" id="flightBtn" onclick="generate()">✨ Let It Take Flight</button><div id="result" style="margin-top:20px">Results will appear here...</div></div><div class="card"><h3>Unlock Unlimited</h3><div id="plans"></div><div id="quota" style="margin-top:10px;color:#a4a1b2"></div></div></div>
 <script>
 let PUBLIC_KEY="{{PUBLIC_KEY}}";let currentType="all";
-function setType(t){currentType=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');if(document.getElementById('prompt').value.trim().length>2)generate();}
+function setType(t){
+  currentType=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  let pr=document.getElementById('prompt').value.trim();
+  if(pr.length>1){
+    document.getElementById('result').innerHTML='🧠 Switching to '+t+'...';
+    generate();
+  }
+}
 async function refreshQuota(){try{let r=await fetch('/api/me');let d=await r.json();document.getElementById('quota').innerText=d.is_premium?'Premium: '+d.plan:'Free: '+d.remaining+' left';let p=document.getElementById('plans');p.innerHTML='';Object.entries(d.plans).forEach(([k,v])=>{let b=document.createElement('button');b.className='primary';b.innerText=v.label+' - GHS '+v.price;b.style.margin='4px';b.onclick=()=>pay(k);p.appendChild(b);});}catch(e){}}
 function copyResult(){navigator.clipboard.writeText(document.getElementById('result').innerText);alert('Copied!');}
-async function generate(){let pr=document.getElementById('prompt').value;if(!pr)return;let resEl=document.getElementById('result');resEl.innerHTML='🧠 Generating...';document.getElementById('flightBtn').classList.add('hidden');try{let r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:pr,type:currentType})});let d=await r.json();if(d.image_url){resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}<br><br><img src="${d.image_url}" style="max-width:100%;border-radius:12px">`;}else{resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}`;}}catch(e){resEl.innerHTML='❌ '+e;}document.getElementById('flightBtn').classList.remove('hidden');setTimeout(refreshQuota,500);}
+async function generate(){
+  let pr=document.getElementById('prompt').value;
+  if(!pr)return;
+  let resEl=document.getElementById('result');
+  resEl.innerHTML='🧠 Generating '+currentType+'...';
+  try{
+    let r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:pr,type:currentType})});
+    let d=await r.json();
+    if(d.image_url){resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}<br><br><img src="${d.image_url}" style="max-width:100%;border-radius:12px">`;}
+    else{resEl.innerHTML=`<button class='copy-btn' onclick='copyResult()'>Copy</button>${d.answer}`;}
+  }catch(e){resEl.innerHTML='❌ '+e;}
+  setTimeout(refreshQuota,500);
+}
 function pay(plan){if(!PUBLIC_KEY){alert('Paystack not set');return;}fetch('/api/paystack/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})}).then(r=>r.json()).then(d=>{if(d.error)return alert(d.error);var h=PaystackPop.setup({key:PUBLIC_KEY,email:d.email,amount:d.kobo,currency:'GHS',ref:d.reference,callback:function(resp){fetch('/api/paystack/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference:resp.reference})}).then(r=>r.json()).then(v=>{alert(v.message);refreshQuota();});},onClose:function(){}});h.openIframe();});}
 refreshQuota();
 </script></body></html>
@@ -160,16 +224,15 @@ def generate_api():
         if search_type == "images":
             enhanced = prompt
             if gemini_key:
-                ai = ask_gemini(f"Enhance into detailed photorealistic prompt, only prompt, 1 sentence: {prompt}", gemini_key)
+                ai = ask_gemini(f"Enhance into detailed photorealistic prompt, only prompt: {prompt}", gemini_key)
                 if ai: enhanced = ai[:400]
             safe = urllib.parse.quote(f"{enhanced}, ultra photorealistic, 8k, realistic skin, studio lighting"[:700])
             image_url = f"https://image.pollinations.ai/prompt/{safe}?width=1280&height=1280&nologo=true&model=flux&seed={int(time.time())}"
-            answer = f"✨ **4K Image Prompt:** {enhanced}\n\nImage below (copy prompt for better results):"
+            answer = f"✨ **4K Image Prompt:** {enhanced}"
 
         elif search_type == "videos":
             if gemini_key:
-                video_prompt = f"""Create full video production concept for: "{prompt}". Format: Title, Hook 0-3s, Scene 1 0-3s, Scene 2 3-6s, Scene 3 6-8s, Voiceover, Music/SFX, Enhanced AI Video Prompt for Runway/Pika, Caption/Hashtags. Ghana fashion style."""
-                ai = ask_gemini(video_prompt, gemini_key)
+                ai = ask_gemini(f"Create full video production concept for: '{prompt}'. Format: Title, Hook, Scene1 0-3s, Scene2 3-6s, Scene3 6-8s, Voiceover, Music, Enhanced Prompt, Captions.", gemini_key)
                 answer = ai if ai else smart_fallback(prompt, search_type)
             else:
                 answer = smart_fallback(prompt, search_type)
@@ -177,10 +240,10 @@ def generate_api():
         else:
             if gemini_key:
                 instr = {
-                    "all": "Explain in SIMPLE words, Ghana example, 4 Modern Facts 2024-2026, Why it matters. Query:",
-                    "captions": "Create 7 viral captions with emojis+hashtags, Ghana luxury style for:",
-                    "scripts": "Write 30-60 sec TikTok script with HOOK, BODY, CTA for:",
-                    "stories": "Write luxury brand story for:"
+                    "all": f"Explain simply with Ghana example, 4 modern facts 2024-2026, why matters. Topic:",
+                    "captions": f"Create 7 viral captions with emojis+hashtags, Ghana luxury style for:",
+                    "scripts": f"Write 30-60 sec TikTok script with HOOK, BODY, CTA, visual cues for:",
+                    "stories": f"Write inspirational luxury brand story with heritage, emotion, CTA for:"
                 }.get(search_type, "Answer simply:")
                 ai = ask_gemini(f"{instr} {prompt}", gemini_key)
                 answer = ai if ai else smart_fallback(prompt, search_type)
@@ -196,7 +259,7 @@ def generate_api():
         return resp
 
     except Exception as e:
-        return jsonify({"answer": smart_fallback("Ghana fashion runway", "videos")})
+        return jsonify({"answer": smart_fallback("test", "all")})
 
 @app.route("/api/paystack/init", methods=["POST"])
 def paystack_init():
