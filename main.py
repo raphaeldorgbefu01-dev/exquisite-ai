@@ -161,4 +161,99 @@ def me():
 
 @app.route("/api/generate", methods=["POST"])
 def gen_api():
-   
+    data = load_data()
+    uid = get_uid()
+    user = get_user(data, uid)
+    j = request.get_json() or {}
+    prompt = (j.get("prompt") or "").strip()
+    if not prompt:
+        prompt = "Best business in Ghana"
+    if len(prompt) > 2000:
+        prompt = prompt[:2000]
+    typ = j.get("type") or "all"
+    key = os.environ.get("GEMINI_API_KEY") or ""
+    if not key:
+        key = os.environ.get("GOOGLE_API_KEY") or ""
+
+    # CHECK 25 FREE LIMIT
+    if not is_premium(user) and user.get("used",0) >= FREE:
+        msg = "Free limit reached (25/25). Upgrade to unlimited."
+        msg += "\n\nChoose Day GHS 10, Weekly GHS 49, Monthly GHS 99."
+        return jsonify({"answer": msg, "need_pay": True})
+
+    ans = ""
+    img = None
+    if typ == "images":
+        safe = urllib.parse.quote(prompt[:400])
+        seed = int(time.time()) % 999999
+        img = "https://image.pollinations.ai/prompt/" + safe
+        img += "?width=1024&height=1024&seed=" + str(seed)
+        ans = "4K Image for: " + prompt[:60]
+    else:
+        if key:
+            g = ask_gemini("Answer like Gemini: " + prompt, key)
+            if g and len(g) > 10:
+                ans = g
+        if not ans:
+            ans = local_answer(prompt, typ)
+
+    user["used"] = user.get("used",0) + 1
+    save_data(data)
+    out = {"answer": ans}
+    if img:
+        out["image_url"] = img
+    resp = make_response(jsonify(out))
+    resp.set_cookie("uid", uid, max_age=86400*365)
+    return resp
+
+@app.route("/api/paystack/init", methods=["POST"])
+def pay_init():
+    if not SEC:
+        return jsonify({"error":"Paystack secret not set"}), 500
+    j = request.get_json() or {}
+    plan_key = j.get("plan") or "day"
+    plan = PLANS.get(plan_key)
+    if not plan:
+        plan = PLANS["day"]
+    uid = get_uid()
+    email = uid + "@exquisite.ai"
+    headers = {"Authorization": "Bearer " + SEC}
+    headers["Content-Type"] = "application/json"
+    payload = {"email": email}
+    payload["amount"] = plan["kobo"] * 100
+    payload["currency"] = "GHS"
+    payload["metadata"] = {"uid": uid, "plan": plan_key}
+    r = http_requests.post("https://api.paystack.co/transaction/initialize", json=payload, headers=headers, timeout=15)
+    jr = r.json()
+    if not jr.get("status"):
+        return jsonify({"error": jr.get("message")}), 400
+    return jsonify({"reference": jr["data"]["reference"],"kobo": plan["kobo"]*100,"email": email})
+
+@app.route("/api/paystack/verify", methods=["POST"])
+def pay_verify():
+    if not SEC:
+        return jsonify({"error":"Secret not set"}), 500
+    j = request.get_json() or {}
+    ref = j.get("reference")
+    if not ref:
+        return jsonify({"error":"No ref"}), 400
+    headers = {"Authorization": "Bearer " + SEC}
+    r = http_requests.get("https://api.paystack.co/transaction/verify/" + ref, headers=headers, timeout=15)
+    jr = r.json()
+    if not jr.get("status"):
+        return jsonify({"error":"Verify failed"}), 400
+    if jr["data"]["status"] != "success":
+        return jsonify({"error":"Payment not success"}), 400
+    meta = jr["data"].get("metadata",{})
+    uid = meta.get("uid") or get_uid()
+    plan_key = meta.get("plan") or "day"
+    data = load_data()
+    user = get_user(data, uid)
+    plan = PLANS.get(plan_key) or PLANS["day"]
+    user["plan"] = plan_key
+    user["expiry"] = int(time.time()) + plan["days"]*24*3600
+    save_data(data)
+    return jsonify({"message": "Premium Activated! " + plan["label"]})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",10000)))
