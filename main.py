@@ -1,4 +1,4 @@
-import json, os, uuid, time, urllib.parse, re
+import json, os, uuid, time, urllib.parse
 from flask import Flask, jsonify, request, make_response
 import requests as http_requests
 
@@ -11,25 +11,18 @@ POLL = os.environ.get('POLLINATIONS_TOKEN','')
 
 def load_data():
     try:
-        f = open(DATA_FILE,'r')
-        d = json.load(f)
-        f.close()
-        return d
+        return json.load(open(DATA_FILE,'r'))
     except:
         return {'users':{}}
 
 def save_data(d):
     try:
-        f = open(DATA_FILE,'w')
-        json.dump(d,f)
-        f.close()
+        json.dump(d, open(DATA_FILE,'w'))
     except:
         pass
 
 def get_uid():
-    u = request.cookies.get('uid')
-    if not u:
-        u = request.headers.get('X-User-Id')
+    u = request.cookies.get('uid') or request.headers.get('X-User-Id')
     if not u:
         u = str(uuid.uuid4())
     return u
@@ -51,30 +44,45 @@ def remain(u):
         left = 0
     return left
 
-def ask_gemini(q, key):
-    if not key:
-        return None
-    try:
-        url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + key
-        payload = {'contents':[{'parts':[{'text':q}]}]}
-        r = http_requests.post(url, json=payload, timeout=20)
-        j = r.json()
-        if 'candidates' in j and j['candidates']:
-            return j['candidates'][0]['content']['parts'][0]['text']
-    except:
-        pass
-    return None
+PLANS = {
+    'day':{'label':'Day GHS 10','kobo':1000,'days':1},
+    'weekly':{'label':'Weekly GHS 49','kobo':4900,'days':7},
+    'monthly':{'label':'Monthly GHS 99','kobo':9900,'days':30}
+}
 
-def solve_math(prompt):
-    try:
-        p = prompt.lower().replace('solve','').replace(' ','').strip()
-        m = re.match(r'^(\d*\.?\d*)x=(\d*\.?\d*)$', p)
-        if m:
-            a_str = m.group(1)
-            if a_str == '':
-                a_str = '1'
-            a = float(a_str)
-            c = float(m.group(2))
-            x = c / a
-            return 'Solve: ' + prompt + '\n x = ' + str(x)
-        m = re.match(r'^(\d*\.?\d*)=(\d*\.?\d*)x$', p)
+def get_page():
+    html = '''
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content='width=device-width,initial-scale=1'>
+<title>Exquisite AI</title>
+<script src=https://js.paystack.co/v1/inline.js></script>
+<style>
+body{background:#0f0f18;color:#fff;padding:20px;font-family:sans-serif}
+.card{background:#191923;padding:16px;margin:12px 0;border-radius:16px}
+textarea{width:100%;padding:12px;background:#111;color:#fff;border-radius:12px;border:1px solid #333}
+button{background:#bda0ff;color:#111;border:0;padding:10px 16px;border-radius:10px;font-weight:700}
+.tab{padding:8px 14px;border-radius:20px;background:#222;color:#aaa;border:1px solid #444;margin:2px}
+.tab.active{background:#bda0ff;color:#111}
+#res{white-space:pre-wrap;background:#111;padding:12px;border-radius:12px;margin-top:10px;min-height:60px}
+.badge{background:#222;padding:4px 10px;border-radius:20px;font-size:12px}
+img.res-img{max-width:100%;border-radius:12px;margin-top:12px;display:block}
+</style></head><body>
+<h2 style=text-align:center>Where Ideas Take Flight</h2>
+<div style=text-align:center>
+<button class=tab id=t-all onclick=setT('all')>All</button>
+<button class=tab id=t-images onclick=setT('images')>Images</button>
+</div>
+<div class=card>
+<div class=badge id=quota>Free: loading...</div>
+<textarea id=q rows=3>A car</textarea><br><br>
+<button id=flightBtn onclick=go()>Let It Take Flight</button>
+<div id=res>Your answer...</div>
+</div>
+<div class=card><h3>Unlock Unlimited</h3><div id=plans></div></div>
+<script>
+let cur='all';
+let PUB='__PUB__';
+function setT(t){cur=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+t).classList.add('active')}
+async function refresh(){let r=await fetch('/api/me');let d=await r.json();document.getElementById('quota').innerText=d.is_premium?'Premium: '+d.plan:'Free: '+d.remaining+' left';let p=document.getElementById('plans');p.innerHTML='';Object.entries(d.plans).forEach(([k,v])=>{let b=document.createElement('button');b.innerText=v.label;b.style='margin:4px';b.onclick=()=>pay(k);p.appendChild(b)})}
+async function go(){let p=document.getElementById('q').value.trim();if(!p)return;let r=document.getElementById('res');r.innerText='Thinking...';
