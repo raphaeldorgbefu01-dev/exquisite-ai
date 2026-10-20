@@ -3,51 +3,34 @@ from flask import Flask, jsonify, request, make_response
 import requests as http_requests
 
 app = Flask(__name__)
-DATA_FILE = 'data.json'
-FREE = 25
 PUB = os.environ.get('PAYSTACK_PUBLIC_KEY','')
 SEC = os.environ.get('PAYSTACK_SECRET_KEY','')
 POLL = os.environ.get('POLLINATIONS_TOKEN','')
+FREE = 25
 
 def load_data():
     try:
-        return json.load(open(DATA_FILE,'r'))
+        return json.load(open('data.json','r'))
     except:
         return {'users':{}}
 
 def save_data(d):
     try:
-        json.dump(d, open(DATA_FILE,'w'))
+        json.dump(d, open('data.json','w'))
     except:
         pass
 
 def get_uid():
-    u = request.cookies.get('uid') or request.headers.get('X-User-Id')
+    u = request.cookies.get('uid')
     if not u:
         u = str(uuid.uuid4())
     return u
 
-def get_user(data, uid):
-    users = data.setdefault('users',{})
-    if uid not in users:
-        users[uid] = {'used':0,'expiry':0,'plan':None}
-    return users[uid]
-
-def is_premium(u):
-    return u.get('expiry',0) > time.time()
-
-def remain(u):
-    if is_premium(u):
-        return 9999
-    left = FREE - u.get('used',0)
-    if left < 0:
-        left = 0
-    return left
-
-PLANS = {
-    'day':{'label':'Day GHS 10','kobo':1000,'days':1},
-    'weekly':{'label':'Weekly GHS 49','kobo':4900,'days':7},
-    'monthly':{'label':'Monthly GHS 99','kobo':9900,'days':30}
-}
-
-def get_page
+@app.route('/')
+def index():
+    pub = PUB
+    html = "<!doctype html><html><head><meta charset=utf-8>"
+    html += "<meta name=viewport content='width=device-width,initial-scale=1'>"
+    html += "<title>Exquisite AI</title>"
+    html += "<script src=https://js.paystack.co/v1/inline.js></script>"
+    html += "<style>body{background:#0f0f18;color:#fff;padding:20px;font-family:sans-serif}.card{background:#191923;padding:16px;margin:12px 0;border-radius:16px}textarea{width:100%;padding:12px;background:#111;color:#fff;border-radius:12px;border:1px solid #333}button{background:#bda0ff;color:#111;border:0;padding:10px 16px;border-radius:10px;font-weight:700}img.res-img{max-width:100%;border-radius:12px;margin-top:12px;display:block}.
