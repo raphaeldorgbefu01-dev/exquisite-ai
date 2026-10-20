@@ -1,6 +1,5 @@
-import json, os, uuid, time, urllib.parse
+import json, os, uuid, time, urllib.parse, urllib.request
 from flask import Flask, jsonify, request, make_response
-import requests as http_requests
 
 app = Flask(__name__)
 PUB = os.environ.get('PAYSTACK_PUBLIC_KEY','')
@@ -94,12 +93,4 @@ def index():
     h += "<div class=card>"
     h += "<div class=badge id=quota>Loading...</div>"
     h += "<textarea id=q rows=3 "
-    h += "placeholder='Type...' oninput=onInput()>A car</textarea>"
-    h += "<br><br>"
-    h += "<button id=flightBtn class=hidden "
-    h += "onclick=go()>Let It Take Flight</button>"
-    h += "<div id=res></div></div>"
-    h += "<div class=card><h3>Unlock Unlimited</h3>"
-    h += "<div id=plans></div></div>"
-    h += "<script>"
-    h += "let PUB='" + pub + "';"
+    h += "
