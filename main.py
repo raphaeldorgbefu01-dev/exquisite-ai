@@ -1,4 +1,4 @@
-import json, os, uuid, time, urllib.parse, urllib.request
+import json, os, uuid, time, urllib.parse, urllib.request, base64
 from flask import Flask, jsonify, request, make_response
 
 app = Flask(__name__)
@@ -25,36 +25,9 @@ def get_uid():
         u = str(uuid.uuid4())
     return u
 
-@app.route("/")
-def index():
-    pub = PUB
-    html = """
-<!doctype html>
-<html><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<title>Exquisite AI</title>
-<script src="https://js.paystack.co/v1/inline.js"></script>
-<style>
-body{background:#0f0f18;color:#fff;padding:20px;font-family:sans-serif}
-.card{background:#191923;padding:16px;margin:12px 0;border-radius:16px}
-textarea{width:100%;padding:12px;background:#111;color:#fff;border-radius:12px;border:1px solid #333}
-button{background:#bda0ff;color:#111;border:0;padding:10px 16px;border-radius:10px;font-weight:700;margin:3px}
-button.tab{background:#222;color:#aaa;border:1px solid #444;border-radius:20px}
-button.tab.active{background:#bda0ff;color:#111}
-button.hidden{display:none!important}
-img.res-img{max-width:100%;border-radius:12px;margin-top:12px;display:block}
-.badge{background:#222;padding:4px 10px;border-radius:20px;font-size:13px}
-#res{white-space:pre-wrap;background:#111;padding:12px;border-radius:12px;margin-top:10px;min-height:50px}
-.pending{display:flex;align-items:center;gap:10px;color:#bda0ff}
-.spinner{width:18px;height:18px;border:3px solid #333;border-top:3px solid #bda0ff;border-radius:50%;animation:spin 0.8s linear infinite}
-@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-.dots span{animation:blink 1.4s infinite both}
-@keyframes blink{0%{opacity:.2}20%{opacity:1}100%{opacity:.2}}
-.cursor{display:inline-block;width:8px;background:#bda0ff;margin-left:2px;animation:cb 0.8s infinite}
-@keyframes cb{0%,50%{opacity:1}51%,100%{opacity:0}}
-</style></head><body>
-<h2 style="text-align:center">Where Ideas Take Flight</h2>
-<div style="text-align:center">
-<button class="tab active" id="t-all" onclick="setT('all')">All</button>
-<button class="tab" id="t-captions" onclick="setT('captions')">Captions</button>
-<button class="tab" id="t-scripts" onclick="setT('scripts')">
+B64_HTML = (
+    "PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgY2hhcnNldD11dGYt"
+    "OD4KPG1ldGEgbmFtZT12aWV3cG9ydCBjb250ZW50PSJ3aWR0aD1kZXZpY2U"
+    "td2lkdGgsaW5pdGlhbC1zY2FsZT0xIj4KPHRpdGxlPkV4cXVpc2l0ZSBBST"
+    "wvdGl0bGU+CjxzY3JpcHQgc3JjPSJodHRwczovL2pzLnBheXN0YWNrLmNv"
+    "L3YxL2lubGluZS5qcyI+PC9zY3JpcHQ+C
