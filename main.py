@@ -25,9 +25,9 @@ def get_uid():
         u = str(uuid.uuid4())
     return u
 
-B64_HTML = (
-    "PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgY2hhcnNldD11dGYt"
-    "OD4KPG1ldGEgbmFtZT12aWV3cG9ydCBjb250ZW50PSJ3aWR0aD1kZXZpY2U"
-    "td2lkdGgsaW5pdGlhbC1zY2FsZT0xIj4KPHRpdGxlPkV4cXVpc2l0ZSBBST"
-    "wvdGl0bGU+CjxzY3JpcHQgc3JjPSJodHRwczovL2pzLnBheXN0YWNrLmNv"
-    "L3YxL2lubGluZS5qcyI+PC9zY3JpcHQ+C
+B64_HTML = """
+PCFkb2N0eXBlIGh0bWw+PGh0bWw+PGhlYWQ+PG1ldGEgY2hhcnNldD11dGYtOD4KPG1ldGEgbmFtZT12
+aWV3cG9ydCBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsaW5pdGlhbC1zY2FsZT0xIj4KPHRpdGxl
+PkV4cXVpc2l0ZSBBSTwvdGl0bGU+CjxzY3JpcHQgc3JjPSJodHRwczovL2pzLnBheXN0YWNrLmNvL3Yx
+L2lubGluZS5qcyI+PC9zY3JpcHQ+CjxzdHlsZT4KYm9keXtiYWNrZ3JvdW5kOiMwZjBmMTg7Y29sb3I6
+I2ZmZjtwYWRkaW5nOjIwc
