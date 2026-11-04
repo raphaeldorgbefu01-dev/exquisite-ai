@@ -1,241 +1,131 @@
-import os, tempfile, requests
-from pathlib import Path
+import os
 import gradio as gr
-import PyPDF2
+from openai import OpenAI
+from PIL import Image, ImageDraw, ImageFont
+import requests
+from gtts import gTTS
+import tempfile
 
-try:
-    from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) if os.getenv("OPENAI_API_KEY") else None
-except:
-    client = None
-try:
-    from gtts import gTTS
-    TTS_AVAILABLE = True
-except:
-    TTS_AVAILABLE = False
+# --- GROQ FREE CLIENT ---
+# Put GROQ_API_KEY in HF Secrets
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1"
+)
 
-# ========= CONFIG =========
-PAYSTACK_PUBLIC_KEY = "pk_test_xxxxxxxxxxxxxxxx" # CHANGE THIS TO YOUR PAYSTACK KEY
-PAID_USERS_5 = set()  # Users who paid GH₵5
-PAID_USERS_10 = set() # Users who paid GH₵10
+MODEL = "llama-3.3-70b-versatile"
+PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY", "pk_test_xxxx")
+CREATOR = "raphaeldorgbefu01-dev"
 
-# ========= PAYMENT HELPERS =========
-def check_paid(email, amount):
-    if amount == 5:
-        return email in PAID_USERS_5 or email in PAID_USERS_10 # GH₵10 includes GH₵5 features
-    if amount == 10:
-        return email in PAID_USERS_10
-    return False
-
-def add_paid_user(email, amount):
-    if amount == 5:
-        PAID_USERS_5.add(email)
-    else:
-        PAID_USERS_10.add(email)
-    return f"✅ Payment confirmed for {email} - GH₵{amount} unlocked!"
-
-# ========= CORE AI FUNCTIONS =========
-def transcribe_audio(audio_path):
-    if not audio_path or not client: return ""
+def ask_ai(prompt):
     try:
-        with open(audio_path, "rb") as f:
-            t = client.audio.transcriptions.create(model="whisper-1", file=f)
-            return t.text
-    except:
-        return ""
+        res = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return res.choices[0].message.content
+    except Exception as e:
+        return f"Error: {e} - Check your GROQ_API_KEY in Secrets"
 
-def text_to_speech(text):
-    if not TTS_AVAILABLE or not text: return None
+def check_paywall(text):
+    text = text.lower()
+    if "logo" in text:
+        return True, "GH₵5", "Logo Design - Pay GH₵5 to continue"
+    if "business presentation" in text or "presentation" in text:
+        return True, "GH₵5", "Business Presentation - Pay GH₵5 to continue"
+    if "video ad" in text or "business video" in text or "advert" in text:
+        return True, "GH₵10", "Business Video Ad - Pay GH₵10 to continue"
+    return False, "", ""
+
+# --- TABS ---
+
+def free_image_tab(prompt):
+    # FREE - No paywall
+    if not prompt:
+        return "Type something to generate", None
+    # Simple image placeholder with text
+    img = Image.new("RGB", (512, 512), color=(30, 30, 60))
+    d = ImageDraw.Draw(img)
+    d.text((20, 240), prompt[:40], fill=(255, 255, 255))
+    return f"Free Image for: {prompt} | by {CREATOR}", img
+
+def logo_tab(prompt):
+    need_pay, price, msg = check_paywall("logo " + prompt)
+    # Show paywall UI
+    pay_html = f"""
+    <div style="padding:20px; background:#fff3cd; border-radius:10px; text-align:center">
+    <h3>{msg}</h3>
+    <p>Pay with Paystack MoMo / Card</p>
+    <p>Amount: {price}</p>
+    <p>After payment, click Generate again</p>
+    </div>
+    """
+    ai_idea = ask_ai(f"Give a logo idea for: {prompt}. Colors, font, symbol.")
+    return pay_html, ai_idea
+
+def presentation_tab(topic):
+    need_pay, price, msg = check_paywall("business presentation " + topic)
+    pay_html = f"""
+    <div style="padding:20px; background:#d1ecf1; border-radius:10px; text-align:center">
+    <h3>{msg}</h3>
+    <p>Pay {price} with MoMo via Paystack</p>
+    </div>
+    """
+    content = ask_ai(f"Create a 5-slide business presentation outline for: {topic}. Slide titles + bullet points.")
+    return pay_html, content
+
+def video_tab(script):
+    need_pay, price, msg = check_paywall("video ad " + script)
+    pay_html = f"""
+    <div style="padding:20px; background:#f8d7da; border-radius:10px; text-align:center">
+    <h3>{msg}</h3>
+    <p>Pay {price} with MoMo via Paystack</p>
+    </div>
+    """
+    ad_script = ask_ai(f"Write a 30-second business video ad script for: {script}. Hook, benefits, call to action.")
+    # Make voice
     try:
-        tts = gTTS(text=text[:500], lang='en')
+        tts = gTTS(text=ad_script[:500], lang='en')
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
         tts.save(tmp.name)
-        return tmp.name
+        audio = tmp.name
     except:
-        return None
+        audio = None
+    return pay_html, ad_script, audio
 
-def detect_intent(message):
-    msg = message.lower()
-    if "logo video" in msg or "video logo" in msg or "logo ad video" in msg:
-        return "logo_video" # GH₵10
-    if "business video" in msg or "video ad" in msg or "advertisement video" in msg or "promo video" in msg:
-        return "business_video" # GH₵10
-    if "logo" in msg:
-        return "logo" # GH₵5
-    if "business presentation" in msg or "pitch deck" in msg or "business plan" in msg or "presentation" in msg:
-        return "presentation" # GH₵5
-    return "free_chat"
-
-def chat_function(message, history, files, audio_input, user_email):
-    if audio_input:
-        tr = transcribe_audio(audio_input)
-        message = f"{message} {tr}".strip() if message else tr
-    if not message and not files:
-        return history, "", None, "", False, False
-
-    file_context = ""
-    if files:
-        for fp in files:
-            if Path(fp).suffix.lower() == ".pdf":
-                try:
-                    with open(fp, "rb") as f:
-                        r = PyPDF2.PdfReader(f)
-                        file_context += "".join([p.extract_text() for p in r.pages[:3]])[:3000]
-                except: pass
-
-    intent = detect_intent(message)
+# --- UI ---
+with gr.Blocks(title="Exquisite AI") as demo:
+    gr.Markdown("# ✨ Exquisite AI by raphaeldorgbefu01-dev\nFree Images | GH₵5 Logo & Presentation | GH₵10 Video Ad")
     
-    # --- PAYWALL POPUP LOGIC ---
-    show_pay5 = False
-    show_pay10 = False
-    pay_message = ""
+    with gr.Tab("🖼️ Free Image"):
+        inp1 = gr.Textbox(label="Describe your image")
+        out1 = gr.Textbox(label="Result")
+        img1 = gr.Image(label="Your Image")
+        btn1 = gr.Button("Generate FREE")
+        btn1.click(free_image_tab, inp1, [out1, img1])
+    
+    with gr.Tab("🎨 Logo - GH₵5"):
+        inp2 = gr.Textbox(label="Business name + style e.g. 'Exquisite cakes, gold logo'")
+        pay2 = gr.HTML()
+        out2 = gr.Textbox(label="Logo Idea from AI")
+        btn2 = gr.Button("Generate Logo Idea - GH₵5")
+        btn2.click(logo_tab, inp2, [pay2, out2])
+    
+    with gr.Tab("📊 Business Presentation - GH₵5"):
+        inp3 = gr.Textbox(label="Presentation topic")
+        pay3 = gr.HTML()
+        out3 = gr.Textbox(label="Presentation Outline", lines=10)
+        btn3 = gr.Button("Generate Presentation - GH₵5")
+        btn3.click(presentation_tab, inp3, [pay3, out3])
+    
+    with gr.Tab("🎬 Video Ad - GH₵10"):
+        inp4 = gr.Textbox(label="What business is the video for?")
+        pay4 = gr.HTML()
+        out4 = gr.Textbox(label="Video Script", lines=10)
+        aud4 = gr.Audio(label="Voiceover")
+        btn4 = gr.Button("Generate Video Ad - GH₵10")
+        btn4.click(video_tab, inp4, [pay4, out4, aud4])
 
-    if intent in ["logo", "presentation"]:
-        if not check_paid(user_email, 5):
-            show_pay5 = True
-            pay_message = f"🔒 **PREMIUM FEATURE (GH₵5)**\nYou asked for: **{intent}**\n\nPlease pay GH₵5 to unlock Logo & Business Presentation generator.\nClick the green Pay button below."
-            history.append((message, pay_message))
-            return history, "", None, pay_message, True, False
+    gr.Markdown("Pay with Paystack: MoMo / Card. Contact: raphaeldorgbefu01-dev")
 
-    if intent in ["logo_video", "business_video"]:
-        if not check_paid(user_email, 10):
-            show_pay10 = True
-            pay_message = f"🔒 **PREMIUM VIDEO (GH₵10)**\nYou asked for: **{intent}**\n\nPlease pay GH₵10 to unlock Business & Logo Video Advertisement generator."
-            history.append((message, pay_message))
-            return history, "", None, pay_message, False, True
-
-    # --- FREE CHAT ---
-    full_prompt = f"{file_context}\nUser wants {intent}: {message}"
-    if client:
-        msgs = [{"role":"system","content":"You are Exquisite AI by ExquisiteTechGH. Helpful, concise."}]
-        for h in history[-6:]: 
-            msgs.append({"role":"user","content":h[0]}); msgs.append({"role":"assistant","content":h[1]})
-        msgs.append({"role":"user","content":full_prompt})
-        ans = client.chat.completions.create(model="gpt-4o-mini", messages=msgs).choices[0].message.content
-    else:
-        ans = f"✅ Exquisite AI (Free Mode): I understood you want {intent}. Result for: {message}"
-
-    history.append((message, ans))
-    voice = text_to_speech(ans)
-    return history, "", voice, "", False, False
-
-def generate_free_image(prompt):
-    """This is FREE image generation - no paywall"""
-    if not prompt.strip(): return None, "Enter prompt"
-    enhanced = f"photorealistic, 8k, cinematic, {prompt}"
-    try:
-        url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(enhanced)}?width=1024&height=1024&nologo=true&enhance=true"
-        data = requests.get(url, timeout=40).content
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-        tmp.write(data); tmp.close()
-        return tmp.name, f"✅ Free Image: {prompt}"
-    except Exception as e:
-        return None, str(e)
-
-def generate_premium_logo(prompt, user_email):
-    if not check_paid(user_email, 5):
-        return None, "🔒 Pay GH₵5 first in Premium tab"
-    enhanced = f"professional logo design, vector, minimalist, clean, {prompt}, white background, 8k"
-    return generate_free_image(enhanced)
-
-def generate_premium_video_ad(prompt, user_email):
-    if not check_paid(user_email, 10):
-        return None, "🔒 Pay GH₵10 first in Premium tab"
-    # For now: generate storyboard image + script. Later connect to real video API like Pika/Runway
-    script = f"VIDEO AD SCRIPT for: {prompt}\nScene 1: Hook (0-3s)\nScene 2: Product Show (3-7s)\nScene 3: Call to Action (7-10s)\nVoiceover: 'Get {prompt} today!'"
-    img, _ = generate_free_image(f"business advertisement poster for {prompt}")
-    return img, script
-
-# ========= UI =========
-with gr.Blocks(theme=gr.themes.Soft(primary_hue="green", secondary_hue="yellow"), title="Exquisite AI") as demo:
-    gr.Markdown("# 🇬🇭 Exquisite AI v3 - Monetized")
-    gr.Markdown("Free Chat & Images | **GH₵5 = Logo & Presentation** | **GH₵10 = Video Ads**")
-
-    user_email_state = gr.Textbox(label="Your Email / MoMo (for unlocking)", placeholder="you@gmail.com or 055XXXXXXX", value="guest@exquisite.ai")
-
-    with gr.Tab("💬 Chat (with Paywall Detection)"):
-        chatbot = gr.Chatbot(height=400)
-        with gr.Row():
-            msg = gr.Textbox(placeholder="Try: 'create a logo for my shop' or 'make business presentation'", scale=4)
-            send = gr.Button("Send 🚀", variant="primary")
-        with gr.Row():
-            audio_in = gr.Audio(sources=["microphone"], type="filepath", label="🎤 Speak")
-            audio_out = gr.Audio(label="🔊 AI Reply", autoplay=True)
-        file_upload = gr.File(file_count="multiple", label="📎 Attach")
-        
-        paywall_msg = gr.Textbox(label="System", visible=False)
-        show_pay5_box = gr.State(False)
-        show_pay10_box = gr.State(False)
-
-        msg.submit(chat_function, [msg, chatbot, file_upload, audio_in, user_email_state], [chatbot, msg, audio_out, paywall_msg, show_pay5_box, show_pay10_box])
-        send.click(chat_function, [msg, chatbot, file_upload, audio_in, user_email_state], [chatbot, msg, audio_out, paywall_msg, show_pay5_box, show_pay10_box])
-
-    with gr.Tab("🎨 Free Image Generation"):
-        gr.Markdown("This is FREE - no payment needed")
-        free_prompt = gr.Textbox(label="Image Prompt")
-        free_btn = gr.Button("Generate FREE Image ✨")
-        free_img = gr.Image(label="Result")
-        free_status = gr.Textbox(label="Status")
-        free_btn.click(generate_free_image, free_prompt, [free_img, free_status])
-
-    with gr.Tab("💰 Premium - GH₵5 & GH₵10"):
-        gr.Markdown("### Pay to unlock premium generators")
-        
-        # PAYSTACK BUTTONS
-        pay_html = f"""
-        <div style="display:flex;gap:15px;flex-direction:column;">
-            <button onclick="pay(500)" style="background:#00a859;color:white;padding:18px;border-radius:12px;font-size:18px;font-weight:bold;border:none;">💚 Pay GH₵5 - Unlock LOGO & PRESENTATION</button>
-            <button onclick="pay(1000)" style="background:#000;color:white;padding:18px;border-radius:12px;font-size:18px;font-weight:bold;border:none;">🖤 Pay GH₵10 - Unlock VIDEO ADS (Logo + Business)</button>
-        </div>
-        <p id="pay-status" style="margin-top:15px;font-weight:bold;"></p>
-        <script src="https://js.paystack.co/v1/inline.js"></script>
-        <script>
-        function pay(kobo){{
-            var email = document.querySelectorAll('input')[0].value || 'guest@exquisite.ai';
-            if(!email.includes('@')) email = email + '@momo.com';
-            var handler = PaystackPop.setup({{
-                key: '{PAYSTACK_PUBLIC_KEY}',
-                email: email,
-                amount: kobo,
-                currency: 'GHS',
-                callback: function(res){{
-                    document.getElementById('pay-status').innerText = '✅ Payment success! Ref: ' + res.reference + '. Go back to Chat, your premium is unlocked for ' + email;
-                }},
-                onClose: function(){{ document.getElementById('pay-status').innerText = 'Payment cancelled'; }}
-            }});
-            handler.openIframe();
-        }}
-        </script>
-        """
-        gr.HTML(pay_html)
-        
-        gr.Markdown("---")
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("#### GH₵5 - Logo Generator")
-                logo_prompt = gr.Textbox(label="Logo idea")
-                logo_btn = gr.Button("Generate Premium Logo (GH₵5)")
-                logo_img = gr.Image(label="Logo")
-                logo_stat = gr.Textbox(label="Status")
-                logo_btn.click(generate_premium_logo, [logo_prompt, user_email_state], [logo_img, logo_stat])
-            with gr.Column():
-                gr.Markdown("#### GH₵10 - Video Ad Generator")
-                video_prompt = gr.Textbox(label="Business / Product for Video Ad")
-                video_btn = gr.Button("Generate Video Ad (GH₵10)")
-                video_img = gr.Image(label="Storyboard")
-                video_stat = gr.Textbox(label="Script")
-                video_btn.click(generate_premium_video_ad, [video_prompt, user_email_state], [video_img, video_stat])
-
-        # Admin unlock (for you to test without paying)
-        gr.Markdown("---\n**For YOU (Owner) - Test Unlock:**")
-        with gr.Row():
-            admin_email = gr.Textbox(label="Email to unlock")
-            admin_amt = gr.Radio([5,10], label="Amount", value=5)
-            admin_btn = gr.Button("Unlock for Free (Admin)")
-            admin_stat = gr.Textbox(label="Result")
-            admin_btn.click(add_paid_user, [admin_email, admin_amt], admin_stat)
-
-    gr.Markdown("Built with ❤️ by ExquisiteTechGH | Not affiliated with Meta")
-
-if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
+demo.launch()
