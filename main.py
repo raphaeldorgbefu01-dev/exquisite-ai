@@ -1,13 +1,12 @@
 import os
 import gradio as gr
 from openai import OpenAI
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import requests
 from gtts import gTTS
 import tempfile
 
 # --- GROQ FREE CLIENT ---
-# Put GROQ_API_KEY in HF Secrets
 client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
@@ -25,7 +24,7 @@ def ask_ai(prompt):
         )
         return res.choices[0].message.content
     except Exception as e:
-        return f"Error: {e} - Check your GROQ_API_KEY in Secrets"
+        return f"Error: {e} - Check your GROQ_API_KEY in Render Environment"
 
 def check_paywall(text):
     text = text.lower()
@@ -37,13 +36,9 @@ def check_paywall(text):
         return True, "GH₵10", "Business Video Ad - Pay GH₵10 to continue"
     return False, "", ""
 
-# --- TABS ---
-
 def free_image_tab(prompt):
-    # FREE - No paywall
     if not prompt:
         return "Type something to generate", None
-    # Simple image placeholder with text
     img = Image.new("RGB", (512, 512), color=(30, 30, 60))
     d = ImageDraw.Draw(img)
     d.text((20, 240), prompt[:40], fill=(255, 255, 255))
@@ -51,7 +46,6 @@ def free_image_tab(prompt):
 
 def logo_tab(prompt):
     need_pay, price, msg = check_paywall("logo " + prompt)
-    # Show paywall UI
     pay_html = f"""
     <div style="padding:20px; background:#fff3cd; border-radius:10px; text-align:center">
     <h3>{msg}</h3>
@@ -83,7 +77,6 @@ def video_tab(script):
     </div>
     """
     ad_script = ask_ai(f"Write a 30-second business video ad script for: {script}. Hook, benefits, call to action.")
-    # Make voice
     try:
         tts = gTTS(text=ad_script[:500], lang='en')
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -93,7 +86,6 @@ def video_tab(script):
         audio = None
     return pay_html, ad_script, audio
 
-# --- UI ---
 with gr.Blocks(title="Exquisite AI") as demo:
     gr.Markdown("# ✨ Exquisite AI by raphaeldorgbefu01-dev\nFree Images | GH₵5 Logo & Presentation | GH₵10 Video Ad")
     
@@ -128,4 +120,7 @@ with gr.Blocks(title="Exquisite AI") as demo:
 
     gr.Markdown("Pay with Paystack: MoMo / Card. Contact: raphaeldorgbefu01-dev")
 
-demo.launch()
+# --- RENDER PORT FIX ---
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 7860))
+    demo.launch(server_name="0.0.0.0", server_port=port)
