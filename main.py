@@ -8,22 +8,29 @@ import urllib.parse
 
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
 client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-MODEL = "llama-3.3-70b-versatile"
-WHISPER_MODEL = "whisper-large-v3"
+
+# --- WORKING GROQ MODELS IN 2026 (tries one by one) ---
+MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
 
 def ask_ai(prompt, history=[]):
     if groq_key == "dummy_key":
         return "⚠️ Add GROQ_API_KEY in Render → Environment"
-    try:
-        msgs = [{"role": "system", "content": "You are Exquisite AI, helpful like Meta AI. Answer simply, clearly, friendly."}]
-        for h in history[-6:]:
-            if isinstance(h, dict) and "role" in h:
-                msgs.append(h)
-        msgs.append({"role": "user", "content": prompt})
-        res = client.chat.completions.create(model=MODEL, messages=msgs)
-        return res.choices[0].message.content
-    except Exception as e:
-        return f"Error: {e}"
+    msgs = [{"role": "system", "content": "You are Exquisite AI, helpful like Meta AI. Answer simply, clearly, friendly."}]
+    for h in history[-6:]:
+        if isinstance(h, dict) and "role" in h:
+            msgs.append(h)
+    msgs.append({"role": "user", "content": prompt})
+    # Try models until one works
+    last_err = ""
+    for model in MODELS:
+        try:
+            res = client.chat.completions.create(model=model, messages=msgs)
+            return res.choices[0].message.content
+        except Exception as e:
+            last_err = str(e)
+            continue
+    return f"Error: {last_err}"
 
 def chat_fn(message, history):
     if not message:
@@ -80,9 +87,17 @@ def audio_fn(audio_file, question):
         return "Upload an audio / voice note first", None
     try:
         path = audio_file.name if hasattr(audio_file, 'name') else audio_file
-        with open(path, "rb") as f:
-            trans = client.audio.transcriptions.create(model=WHISPER_MODEL, file=f)
-        transcript = trans.text
+        transcript = ""
+        for wm in WHISPER_MODELS:
+            try:
+                with open(path, "rb") as f:
+                    trans = client.audio.transcriptions.create(model=wm, file=f)
+                transcript = trans.text
+                break
+            except:
+                continue
+        if not transcript:
+            return "Could not transcribe audio", None
         q = question or "What did I say? Summarize it"
         answer = ask_ai(f"User said in audio: {transcript}\nQuestion: {q}", [])
         tts = gTTS(text=answer[:500], lang='en')
