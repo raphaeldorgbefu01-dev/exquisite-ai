@@ -37,8 +37,12 @@ def ask_ai(prompt, history=[]):
         return "Add GROQ_API_KEY in Render Environment"
     msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
     for h in history[-6:]:
-        if isinstance(h, dict) and "role" in h:
-            msgs.append(h)
+        if isinstance(h, dict) and "role" in h and "content" in h:
+            content = h["content"]
+            if isinstance(content, list):
+                content = " ".join([str(c.get("text", "") if isinstance(c, dict) else c) for c in content])
+            if h["role"] in ["user", "assistant"]:
+                msgs.append({"role": h["role"], "content": str(content)})
     msgs.append({"role": "user", "content": prompt})
     last_err = ""
     for model in MODELS:
