@@ -9,19 +9,39 @@ import urllib.parse
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
 client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 
-# --- WORKING GROQ MODELS IN 2026 (tries one by one) ---
 MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
 WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
+
+# --- NEW: GEMINI-STYLE FORMATTING ---
+SYSTEM_PROMPT = """You are Exquisite AI, helpful like Meta AI and Gemini. Answer simply, clearly, friendly.
+
+IMPORTANT FORMATTING RULES - ALWAYS FOLLOW:
+1. NEVER use LaTeX like \\[ \\] or \\text{} or $$. It does not show well.
+2. Use plain readable text with subscripts using normal characters: CO2, H2O, C6H12O6, O2
+3. When user asks for an equation, ALWAYS show it EXACTLY like this style:
+
+The overall balanced chemical equation for photosynthesis is:
+
+6CO2 + 6H2O --Light energy--> C6H12O6 + 6O2
+
+In words:
+Carbon dioxide + Water + Light energy -> Glucose + Oxygen
+
+- Reactants: 6 molecules of carbon dioxide (CO2) and 6 molecules of water (H2O).
+- Products: 1 molecule of glucose (C6H12O6) and 6 molecules of oxygen (O2).
+
+4. For ALL answers: Use short headings, bold, bullet points, and simple words. Make it visible and easy to read on phone.
+5. Explain step-by-step for students.
+"""
 
 def ask_ai(prompt, history=[]):
     if groq_key == "dummy_key":
         return "⚠️ Add GROQ_API_KEY in Render → Environment"
-    msgs = [{"role": "system", "content": "You are Exquisite AI, helpful like Meta AI. Answer simply, clearly, friendly."}]
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
     for h in history[-6:]:
         if isinstance(h, dict) and "role" in h:
             msgs.append(h)
     msgs.append({"role": "user", "content": prompt})
-    # Try models until one works
     last_err = ""
     for model in MODELS:
         try:
@@ -125,7 +145,7 @@ with gr.Blocks(title="Exquisite AI") as demo:
     
     with gr.Tab("💬 Chat - Like Meta AI"):
         chatbot = gr.Chatbot(height=400)
-        msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Explain swinging and hopping to class 2")
+        msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Equation for photosynthesis")
         msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
         gr.Button("Ask").click(chat_fn, [msg, chatbot], [chatbot, msg])
 
@@ -148,18 +168,4 @@ with gr.Blocks(title="Exquisite AI") as demo:
         aud_reply = gr.Audio(label="Voice Reply")
         gr.Button("Listen & Answer").click(audio_fn, [aud_in, q2], [aud_out, aud_reply])
 
-    with gr.Tab("🎨 Logo - GH₵5"):
-        l1 = gr.Textbox(label="Business name"); p1 = gr.HTML(); o1 = gr.Textbox(label="Logo Idea")
-        gr.Button("Generate Logo - GH₵5").click(logo_fn, l1, [p1, o1])
-
-    with gr.Tab("📊 Presentation - GH₵5"):
-        l2 = gr.Textbox(label="Topic"); p2 = gr.HTML(); o2 = gr.Textbox(label="Outline", lines=10)
-        gr.Button("Generate - GH₵5").click(pres_fn, l2, [p2, o2])
-
-    with gr.Tab("🎬 Video Ad - GH₵10"):
-        l3 = gr.Textbox(label="Business"); p3 = gr.HTML(); o3 = gr.Textbox(label="Script", lines=10)
-        gr.Button("Generate - GH₵10").click(video_fn, l3, [p3, o3])
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    with gr.Tab
