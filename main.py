@@ -13,11 +13,11 @@ client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
 
-CSS = ".chatbot table{display:block;overflow-x:auto;width:100%} .chatbot th,.chatbot td{padding:8px;border:1px solid #ddd;min-width:90px;max-width:180px} .chatbot th{background:#f0f0f0}"
+CSS = ".chatbot{max-width:100%!important} .chatbot table{display:block;overflow-x:auto!important;width:100%;border-collapse:collapse} .chatbot th,.chatbot td{padding:10px;border:1px solid #ddd;white-space:nowrap!important;min-width:110px} .chatbot th{background:#f0f0f0}"
 
 PWA_HEAD = '<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#6a11cb"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Exquisite AI"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png"><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})})}</script>'
 
-SYSTEM_PROMPT = "You are Exquisite AI, helpful like Meta AI and Gemini. Answer simply, clearly, friendly. NEVER use LaTeX like [ ] or text{} or $$. Use plain text: CO2, H2O, C6H12O6, O2. For equation show: 6CO2 + 6H2O --Light energy--> C6H12O6 + 6O2. In words: Carbon dioxide + Water + Light energy -> Glucose + Oxygen. FOR TABLES: Use MAX 3 columns, headers SHORT, each cell max 4-5 words, never long sentences in table. Use headings, bold, bullet points."
+SYSTEM_PROMPT = "You are Exquisite AI. Answer simply, clearly. NEVER use LaTeX. Use plain text: CO2, H2O, C6H12O6, O2. For equation show: 6CO2 + 6H2O --Light energy--> C6H12O6 + 6O2. FOR TABLES: Use MAX 3 columns, headers SHORT, each cell max 3-4 short words, never long words like Sporophyte alone - write Sporo. stage. If word is long, use short form + explain below table. Use headings, bold, bullet points."
 
 def ask_ai(prompt, history=[]):
     if groq_key == "dummy_key":
@@ -151,7 +151,7 @@ create_pwa_files()
 
 with gr.Blocks(title="Exquisite AI", head=PWA_HEAD) as demo:
     gr.Markdown("# Exquisite AI\nAsk anything, upload documents, send voice, generate real photos\n\nTo install as App: Chrome 3 dots -> Add to Home Screen -> Install")
-    with gr.Tab("Chat - Like Meta AI"):
+    with gr.Tab("All"):
         chatbot = gr.Chatbot(height=400, elem_classes=["chatbot"])
         msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Equation for photosynthesis")
         msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
