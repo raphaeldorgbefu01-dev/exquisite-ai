@@ -13,11 +13,48 @@ client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
 
-CSS = ".chatbot{max-width:100%!important} .chatbot table{display:block;overflow-x:auto!important;width:100%;border-collapse:collapse} .chatbot th,.chatbot td{padding:10px;border:1px solid #ddd;white-space:nowrap!important;min-width:110px} .chatbot th{background:#f0f0f0}"
+CSS = ".chatbot{max-width:100%!important} .chatbot table{display:block;overflow-x:auto!important;width:100%;border-collapse:collapse} .chatbot th,.chatbot td{padding:10px;border:1px solid #ddd;white-space:nowrap!important;min-width:110px} .chatbot th{background:#f0f0f0} *{transition:background-color 1s ease, color 1s ease!important}"
 
-PWA_HEAD = '<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#6a11cb"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Exquisite AI"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="icon" href="/icon-192.png"><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})})}</script>'
+# --- COLOUR CYCLE EVERY 5 MINUTES ---
+PWA_HEAD = """
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#6a11cb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon-192.png">
+<script>
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})})}
+// COLOUR CYCLE - 5 MINUTES = 300000 ms
+const COLORS = [
+  {bg:"#ffffff", text:"#000000", name:"Normal"},
+  {bg:"#1a0033", text:"#ffffff", name:"Black Violet"},
+  {bg:"#1e3aff", text:"#ffffff", name:"Blue"},
+  {bg:"#ff69b4", text:"#ffffff", name:"Pink"},
+  {bg:"#00a651", text:"#ffffff", name:"Green"},
+  {bg:"#ffd700", text:"#000000", name:"Gold"}
+];
+let colorIndex = 0;
+function applyColor(){
+  const c = COLORS[colorIndex];
+  document.body.style.backgroundColor = c.bg;
+  document.body.style.color = c.text;
+  document.documentElement.style.backgroundColor = c.bg;
+  const app = document.querySelector("gradio-app");
+  if(app){ app.style.backgroundColor = c.bg; }
+  const blocks = document.querySelectorAll(".gradio-container, .block, .form");
+  blocks.forEach(b => { b.style.backgroundColor = c.bg; });
+  // Keep chat bubbles readable
+  const bubbles = document.querySelectorAll(".message");
+  bubbles.forEach(b => { b.style.backgroundColor = c.bg === "#ffffff" ? "#f0f0f0" : c.bg; });
+  colorIndex = (colorIndex + 1) % COLORS.length;
+}
+setInterval(applyColor, 300000);
+window.addEventListener("load", () => { setTimeout(applyColor, 1000); });
+</script>
+"""
 
-SYSTEM_PROMPT = "You are Exquisite AI. Answer simply, clearly. NEVER use LaTeX. Use plain text: CO2, H2O, C6H12O6, O2. For equation show: 6CO2 + 6H2O --Light energy--> C6H12O6 + 6O2. FOR TABLES: Use MAX 3 columns, headers SHORT, each cell max 3-4 short words, never long words like Sporophyte alone - write Sporo. stage. If word is long, use short form + explain below table. Use headings, bold, bullet points."
+SYSTEM_PROMPT = "You are Exquisite AI. Answer simply, clearly. NEVER use LaTeX. Use plain text: CO2, H2O, C6H12O6, O2. For equation show: 6CO2 + 6H2O --Light energy--> C6H12O6 + 6O2. FOR TABLES: Use MAX 3 columns, headers SHORT, each cell max 3-4 short words. Use headings, bold, bullet points."
 
 def ask_ai(prompt, history=[]):
     if groq_key == "dummy_key":
@@ -150,7 +187,7 @@ def create_pwa_files():
 create_pwa_files()
 
 with gr.Blocks(title="Exquisite AI", head=PWA_HEAD) as demo:
-    gr.Markdown("# Exquisite AI\nAsk anything, upload documents, send voice, generate real photos\n\nTo install as App: Chrome 3 dots -> Add to Home Screen -> Install")
+    gr.Markdown("# Exquisite AI\nAsk anything, upload documents, send voice, generate real photos\n\nColour changes every 5 mins: White -> Black Violet -> Blue -> Pink -> Green -> Gold -> White")
     with gr.Tab("All"):
         chatbot = gr.Chatbot(height=400, elem_classes=["chatbot"])
         msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Equation for photosynthesis")
