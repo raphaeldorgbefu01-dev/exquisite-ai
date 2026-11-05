@@ -16,7 +16,6 @@ def ask_ai(prompt, history=[]):
         return "⚠️ Add GROQ_API_KEY in Render → Environment"
     try:
         msgs = [{"role": "system", "content": "You are Exquisite AI, helpful like Meta AI. Answer simply, clearly, friendly."}]
-        # history is now list of dicts
         for h in history[-6:]:
             if isinstance(h, dict) and "role" in h:
                 msgs.append(h)
@@ -26,7 +25,6 @@ def ask_ai(prompt, history=[]):
     except Exception as e:
         return f"Error: {e}"
 
-# --- FIXED CHAT FOR GRADIO 6 ---
 def chat_fn(message, history):
     if not message:
         return history, ""
@@ -111,7 +109,7 @@ with gr.Blocks(title="Exquisite AI") as demo:
     gr.Markdown("# ✨ Exquisite AI\nAsk anything, upload documents, send voice, generate real photos")
     
     with gr.Tab("💬 Chat - Like Meta AI"):
-        chatbot = gr.Chatbot(height=400, type="messages")
+        chatbot = gr.Chatbot(height=400)
         msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Explain swinging and hopping to class 2")
         msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
         gr.Button("Ask").click(chat_fn, [msg, chatbot], [chatbot, msg])
