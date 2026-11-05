@@ -12,10 +12,18 @@ client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 MODELS = ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
 
+# --- CSS TO FIX TABLES ON PHONE ---
+CSS = """
+.chatbot table { display: block; overflow-x: auto; white-space: nowrap; width: 100%; border-collapse: collapse; }
+.chatbot th, .chatbot td { padding: 8px 10px; text-align: left; border: 1px solid #ddd; white-space: normal !important; min-width: 90px; max-width: 180px; word-wrap: break-word; }
+.chatbot th { background: #f0f0f0; font-weight: bold; }
+.chatbot td { vertical-align: top; }
+"""
+
 SYSTEM_PROMPT = """You are Exquisite AI, helpful like Meta AI and Gemini. Answer simply, clearly, friendly.
 
 IMPORTANT FORMATTING RULES - ALWAYS FOLLOW:
-1. NEVER use LaTeX like \\[ \\] or \\text{} or $$. It does not show well.
+1. NEVER use LaTeX like \\[ \\] or \\text{} or $$.
 2. Use plain readable text: CO2, H2O, C6H12O6, O2
 3. When user asks for an equation, ALWAYS show it like this:
 
@@ -29,7 +37,22 @@ Carbon dioxide + Water + Light energy -> Glucose + Oxygen
 - Reactants: 6 molecules of carbon dioxide (CO2) and 6 molecules of water (H2O).
 - Products: 1 molecule of glucose (C6H12O6) and 6 molecules of oxygen (O2).
 
-4. For ALL answers: Use short headings, bold, bullet points, simple words. Make it visible and easy to read on phone.
+4. FOR TABLES - VERY IMPORTANT FOR PHONE:
+- Use MAXIMUM 3 columns. Never use 4 or 5 columns.
+- Keep headers SHORT: e.g. Type | Example | Meaning
+- Keep each cell SHORT - max 4-5 words. Never put long sentences in a table cell.
+- Use normal horizontal words, never break words.
+- If information is long, use bullet list instead of table.
+- Example GOOD table:
+
+| Type | Example | Use |
+| --- | --- | --- |
+| Hybrid | Maize | More food |
+| Pure | Rice | Normal |
+
+Example BAD - DO NOT DO: Long sentences inside table, 4+ columns.
+
+5. For ALL answers: Use short headings, bold, bullet points, simple words. Make it visible and easy to read on phone.
 """
 
 def ask_ai(prompt, history=[]):
@@ -142,10 +165,10 @@ def video_fn(script):
     ad = ask_ai(f"Write 30-sec video ad script for: {script}", [])
     return pay, ad
 
-with gr.Blocks(title="Exquisite AI") as demo:
+with gr.Blocks(title="Exquisite AI", css=CSS) as demo:
     gr.Markdown("# Exquisite AI\nAsk anything, upload documents, send voice, generate real photos")
     with gr.Tab("Chat - Like Meta AI"):
-        chatbot = gr.Chatbot(height=400)
+        chatbot = gr.Chatbot(height=400, elem_classes=["chatbot"])
         msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Equation for photosynthesis")
         msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
         gr.Button("Ask").click(chat_fn, [msg, chatbot], [chatbot, msg])
