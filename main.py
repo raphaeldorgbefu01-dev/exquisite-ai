@@ -5,13 +5,11 @@ from openai import OpenAI
 from gtts import gTTS
 import tempfile
 import urllib.parse
-
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
 client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 CSS = ".chatbot table{display:block;overflow-x:auto!important}"
 SYS = "You are Exquisite AI. Answer simply. NEVER use LaTeX."
-COLOR_JS = "<script>var C=['#ffffff','#1a0033','#1e3aff','#ff69b4','#00a651','#ffd700'];var i=0;function ch(){document.body.style.backgroundColor=C[i];i=(i+1)%C.length;}setInterval(ch,60000);</script>"
-
+JS = "var C=['#ffffff','#1a0033','#1e3aff','#ff69b4','#00a651','#ffd700'];var i=0;function ch(){document.body.style.backgroundColor=C[i];i=(i+1)%C.length;}setInterval(ch,60000);"
 def ask_ai(prompt, history):
     msgs = [{"role": "system", "content": SYS}]
     for h in history[-6:]:
@@ -25,7 +23,6 @@ def ask_ai(prompt, history):
         except Exception:
             continue
     return "Error, try again"
-
 def chat_fn(message, history):
     if not message:
         return history, ""
@@ -35,7 +32,6 @@ def chat_fn(message, history):
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": reply})
     return history, ""
-
 def real_image(prompt):
     if not prompt:
         return "Type something", None
@@ -49,7 +45,6 @@ def real_image(prompt):
         return "Image for: " + prompt, tmp.name
     except Exception:
         return "Error loading image", None
-
 def doc_fn(file, question):
     if file is None:
         return "Upload a document first"
@@ -62,22 +57,23 @@ def doc_fn(file, question):
             for p in reader.pages[:5]:
                 text = text + (p.extract_text() or "") + " "
         elif path.endswith(".txt"):
-            with open(path, "r", errors="ignore") as f:
-                text = f.read()[:8000]
+            f = open(path, "r", errors="ignore")
+            text = f.read()[:8000]
+            f.close()
         else:
             return "Upload PDF or TXT"
     except Exception:
         return "Could not read file"
     q = question or "Summarize simply"
     return ask_ai("Document: " + text[:6000] + " Question: " + q, [])
-
 def audio_fn(audio_file, question):
     if audio_file is None:
         return "Upload audio first", None
     try:
         path = audio_file.name if hasattr(audio_file, "name") else audio_file
-        with open(path, "rb") as f:
-            trans = client.audio.transcriptions.create(model="whisper-large-v3-turbo", file=f)
+        f = open(path, "rb")
+        trans = client.audio.transcriptions.create(model="whisper-large-v3-turbo", file=f)
+        f.close()
         transcript = trans.text
         q = question or "Summarize it"
         ans = ask_ai("Said: " + transcript + " Q: " + q, [])
@@ -87,9 +83,7 @@ def audio_fn(audio_file, question):
         return "You said: " + transcript + " Answer: " + ans, tmp.name
     except Exception:
         return "Audio error", None
-
-with gr.Blocks(title="Exquisite AI") as demo:
-    gr.HTML(COLOR_JS)
+with gr.Blocks(title="Exquisite AI", js_on_load=JS) as demo:
     gr.Markdown("# Exquisite AI")
     gr.Markdown("Colour changes every 1 min")
     with gr.Tab("All"):
@@ -100,4 +94,19 @@ with gr.Blocks(title="Exquisite AI") as demo:
     with gr.Tab("Realistic Photo"):
         inp = gr.Textbox(label="Describe photo")
         out = gr.Textbox(label="Result")
-        img = gr.Image
+        img = gr.Image(label="Your Real Photo")
+        gr.Button("Generate").click(real_image, inp, [out, img])
+    with gr.Tab("Document"):
+        file = gr.File(label="Upload PDF TXT")
+        q = gr.Textbox(label="Question")
+        doc_out = gr.Textbox(label="Answer", lines=10)
+        gr.Button("Ask").click(doc_fn, [file, q], doc_out)
+    with gr.Tab("Audio / Voice"):
+        aud_in = gr.Audio(type="filepath", label="Upload voice")
+        q2 = gr.Textbox(label="Question")
+        aud_out = gr.Textbox(label="Answer", lines=8)
+        aud_reply = gr.Audio(label="Voice Reply")
+        gr.Button("Listen").click(audio_fn, [aud_in, q2], [aud_out, aud_reply])
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    demo.launch(server_name="0.0.0.0", server_port=port, allowed_paths=[".", "/tmp"], css=CSS)
