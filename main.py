@@ -6,7 +6,6 @@ from gtts import gTTS
 import tempfile
 import urllib.parse
 
-# --- GROQ ---
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
 client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 MODEL = "llama-3.3-70b-versatile"
@@ -17,26 +16,30 @@ def ask_ai(prompt, history=[]):
         return "⚠️ Add GROQ_API_KEY in Render → Environment"
     try:
         msgs = [{"role": "system", "content": "You are Exquisite AI, helpful like Meta AI. Answer simply, clearly, friendly."}]
+        # history is now list of dicts
         for h in history[-6:]:
-            msgs.append({"role": "user", "content": h[0]})
-            msgs.append({"role": "assistant", "content": h[1]})
+            if isinstance(h, dict) and "role" in h:
+                msgs.append(h)
         msgs.append({"role": "user", "content": prompt})
         res = client.chat.completions.create(model=MODEL, messages=msgs)
         return res.choices[0].message.content
     except Exception as e:
         return f"Error: {e}"
 
-# --- 1. CHAT LIKE META AI ---
+# --- FIXED CHAT FOR GRADIO 6 ---
 def chat_fn(message, history):
+    if not message:
+        return history, ""
+    if history is None:
+        history = []
     reply = ask_ai(message, history)
-    history.append((message, reply))
+    history.append({"role": "user", "content": message})
+    history.append({"role": "assistant", "content": reply})
     return history, ""
 
-# --- 2. REALISTIC PHOTO GENERATION ---
 def real_image(prompt):
     if not prompt:
         return "Type something e.g. Luxury car", None
-    # Free realistic image generator
     safe = urllib.parse.quote(prompt + ", realistic photo, high quality, 4k, detailed")
     url = f"https://image.pollinations.ai/prompt/{safe}?width=1024&height=1024&seed=42&nologo=true"
     try:
@@ -48,7 +51,6 @@ def real_image(prompt):
     except Exception as e:
         return f"Error loading image: {e}", None
 
-# --- 3. DOCUMENT ATTACHMENT ---
 def doc_fn(file, question):
     if file is None:
         return "Upload a document first (PDF, TXT)"
@@ -71,24 +73,20 @@ def doc_fn(file, question):
             return "Please upload PDF, TXT or DOCX"
     except Exception as e:
         return f"Could not read file: {e}"
-    
     if not question:
         question = "Summarize this document simply"
-    return ask_ai(f"Document content:\n{text[:6000]}\n\nQuestion: {question}")
+    return ask_ai(f"Document content:\n{text[:6000]}\n\nQuestion: {question}", [])
 
-# --- 4. AUDIO ---
 def audio_fn(audio_file, question):
     if audio_file is None:
         return "Upload an audio / voice note first", None
     try:
         path = audio_file.name if hasattr(audio_file, 'name') else audio_file
-        # Transcribe with Groq Whisper
         with open(path, "rb") as f:
             trans = client.audio.transcriptions.create(model=WHISPER_MODEL, file=f)
         transcript = trans.text
         q = question or "What did I say? Summarize it"
-        answer = ask_ai(f"User said in audio: {transcript}\nQuestion: {q}")
-        # Voice reply
+        answer = ask_ai(f"User said in audio: {transcript}\nQuestion: {q}", [])
         tts = gTTS(text=answer[:500], lang='en')
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
         tts.save(tmp.name)
@@ -98,22 +96,22 @@ def audio_fn(audio_file, question):
 
 def logo_fn(prompt):
     pay = "<div style='padding:15px;background:#fff3cd;border-radius:10px;text-align:center'><h3>Logo - GH₵5 via Paystack MoMo</h3></div>"
-    return pay, ask_ai(f"Give logo idea for: {prompt}. Colors, font, symbol.")
+    return pay, ask_ai(f"Give logo idea for: {prompt}. Colors, font, symbol.", [])
 
 def pres_fn(topic):
     pay = "<div style='padding:15px;background:#d1ecf1;border-radius:10px;text-align:center'><h3>Presentation - GH₵5</h3></div>"
-    return pay, ask_ai(f"Create 5-slide business presentation outline for: {topic}")
+    return pay, ask_ai(f"Create 5-slide business presentation outline for: {topic}", [])
 
 def video_fn(script):
     pay = "<div style='padding:15px;background:#f8d7da;border-radius:10px;text-align:center'><h3>Video Ad - GH₵10</h3></div>"
-    ad = ask_ai(f"Write 30-sec video ad script for: {script}")
+    ad = ask_ai(f"Write 30-sec video ad script for: {script}", [])
     return pay, ad
 
 with gr.Blocks(title="Exquisite AI") as demo:
     gr.Markdown("# ✨ Exquisite AI\nAsk anything, upload documents, send voice, generate real photos")
     
     with gr.Tab("💬 Chat - Like Meta AI"):
-        chatbot = gr.Chatbot(height=400)
+        chatbot = gr.Chatbot(height=400, type="messages")
         msg = gr.Textbox(label="Ask anything...", placeholder="e.g. Explain swinging and hopping to class 2")
         msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
         gr.Button("Ask").click(chat_fn, [msg, chatbot], [chatbot, msg])
