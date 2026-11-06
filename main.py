@@ -5,6 +5,11 @@ from openai import OpenAI
 from gtts import gTTS
 import tempfile
 import urllib.parse
+import json
+import hashlib
+import time
+import uuid
+
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
 pay_key = os.getenv("PAYSTACK_SECRET_KEY") or "dummy"
 admin_pw = os.getenv("ADMIN_PASSWORD") or "admin123"
@@ -13,6 +18,85 @@ CSS = ".chatbot table{display:block;overflow-x:auto!important}"
 SYS = "You are Exquisite AI. Answer simply. NEVER use LaTeX."
 JS = "var C=['#ffffff','#1a0033','#1e3aff','#ff69b4','#00a651','#ffd700'];var i=0;function ch(){document.body.style.backgroundColor=C[i];i=(i+1)%C.length;}setInterval(ch,60000);"
 PAID = {}
+
+# --- NEW: PERMANENT CHAT STORAGE ---
+CHAT_FILE = "exquisite_chats.json"
+
+def load_all_chats():
+    if not os.path.exists(CHAT_FILE):
+        return {}
+    try:
+        with open(CHAT_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_all_chats(data):
+    try:
+        with open(CHAT_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print("Save error:", e)
+
+def make_user_key(username, pin):
+    # Simple hash so PIN is not stored plain
+    return hashlib.sha256((username.strip().lower() + "|" + pin.strip()).encode()).hexdigest()[:16]
+
+def get_chat_list(username, pin):
+    if not username or not pin:
+        return gr.update(choices=[], value=None), "Login with Username + PIN to see history"
+    key = make_user_key(username, pin)
+    data = load_all_chats()
+    user_chats = data.get(key, {})
+    # Sort by last updated, newest first
+    items = sorted(user_chats.items(), key=lambda x: x[1].get("updated", 0), reverse=True)
+    choices = []
+    for cid, c in items:
+        title = c.get("title", "Chat")[:35]
+        choices.append(f"{title} | {cid}")
+    return gr.update(choices=choices, value=None), f"Welcome {username}! You have {len(choices)} saved chats."
+
+def load_selected_chat(selected, username, pin, current_id):
+    if not selected or not username or not pin:
+        return [], current_id, "Select a chat"
+    cid = selected.split(" | ")[-1]
+    key = make_user_key(username, pin)
+    data = load_all_chats()
+    chat = data.get(key, {}).get(cid, {})
+    history = chat.get("history", [])
+    return history, cid, f"Opened: {chat.get('title','Chat')}"
+
+def new_chat(username, pin):
+    cid = str(uuid.uuid4())[:8]
+    if username and pin:
+        key = make_user_key(username, pin)
+        data = load_all_chats()
+        if key not in data:
+            data[key] = {}
+        data[key][cid] = {"title": "New Chat", "history": [], "updated": time.time()}
+        save_all_chats(data)
+    return [], cid, "New chat started - it will auto-save"
+
+def save_current_chat(username, pin, chat_id, history):
+    if not username or not pin or not history:
+        return chat_id
+    key = make_user_key(username, pin)
+    data = load_all_chats()
+    if key not in data:
+        data[key] = {}
+    if not chat_id:
+        chat_id = str(uuid.uuid4())[:8]
+    # Title = first user message
+    title = "New Chat"
+    for h in history:
+        if isinstance(h, dict) and h.get("role") == "user":
+            title = str(h.get("content",""))[:40]
+            break
+    data[key][chat_id] = {"title": title, "history": history, "updated": time.time()}
+    save_all_chats(data)
+    return chat_id
+# --- END NEW ---
+
 def ask_ai(prompt, history):
     msgs = [{"role": "system", "content": SYS}]
     for h in history[-6:]:
@@ -26,15 +110,20 @@ def ask_ai(prompt, history):
         except Exception:
             continue
     return "Error, try again"
-def chat_fn(message, history):
+
+def chat_fn(message, history, username, pin, chat_id):
     if not message:
-        return history, ""
+        return history, "", chat_id, "Type something"
     if history is None:
         history = []
     reply = ask_ai(message, history)
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": reply})
-    return history, ""
+    # Auto-save if logged in
+    new_id = save_current_chat(username, pin, chat_id, history)
+    status = "Saved ✅" if (username and pin) else "Not saved - Login to make it permanent"
+    return history, "", new_id, status
+
 def real_image(prompt):
     if not prompt:
         return "Type something", None
@@ -48,6 +137,7 @@ def real_image(prompt):
         return "Image for: " + prompt, tmp.name
     except Exception:
         return "Error loading image", None
+
 def doc_fn(file, question):
     if file is None:
         return "Upload a document first"
@@ -66,9 +156,12 @@ def doc_fn(file, question):
         else:
             return "Upload PDF or TXT"
     except Exception:
+        return "Upload PDF or TXT"
+    except Exception:
         return "Could not read file"
     q = question or "Summarize simply"
     return ask_ai("Document: " + text[:6000] + " Question: " + q, [])
+
 def audio_fn(audio_file, question):
     if audio_file is None:
         return "Upload audio first", None
@@ -86,6 +179,7 @@ def audio_fn(audio_file, question):
         return "You said: " + transcript + " Answer: " + ans, tmp.name
     except Exception:
         return "Audio error", None
+
 def start_pay(email, plan):
     if not email or "@" not in email:
         return "Enter your email first", ""
@@ -100,6 +194,7 @@ def start_pay(email, plan):
         return "1. Click to pay with MoMo: " + url + " 2. After paying, copy your Reference and paste it below to unlock.", ref
     except Exception:
         return "Payment error. Check PAYSTACK_SECRET_KEY in Render.", ""
+
 def verify_pay(ref, plan):
     if not ref:
         return "Paste your Paystack Reference first", False, "Not paid"
@@ -114,14 +209,17 @@ def verify_pay(ref, plan):
         return "Payment not confirmed yet. Wait and try again.", False, "Not paid"
     except Exception:
         return "Verify error", False, "Not paid"
+
 def logo_fn(prompt, is_paid, plan_status):
     if not is_paid:
         return "Pay GH5 first to unlock Logo. Use Pay tab.", None
     return real_image("Professional logo, clean, modern: " + prompt)
+
 def video_fn(prompt, is_paid):
     if not is_paid:
         return "Pay GH10 first to unlock Video. Use Pay tab.", None
     return real_image("Cinematic video thumbnail, high quality: " + prompt)
+
 def admin_login(pwd):
     if pwd == admin_pw:
         total = len(PAID)
@@ -136,6 +234,7 @@ def admin_login(pwd):
         txt = "ADMIN UNLOCKED. Total Paid: " + str(total) + " Logo: " + str(logo_c) + " Video: " + str(video_c) + " Total GH: " + str(money) + " Details: " + str(PAID)
         return txt, True
     return "Access denied. Wrong Admin Password.", False
+
 def admin_manual(ref, plan, is_admin):
     if not is_admin:
         return "Enter Admin Password first and unlock Admin."
@@ -143,16 +242,33 @@ def admin_manual(ref, plan, is_admin):
         return "Enter Reference to manually approve."
     PAID[ref] = plan
     return "Manually approved: " + ref + " for " + plan + ". Tell user to use this Reference to verify."
+
 with gr.Blocks(title="Exquisite AI", js=JS) as demo:
     gr.Markdown("# Exquisite AI")
     gr.Markdown("Ask anything, upload documents, send voice, generate real photos.........")
     paid_state = gr.State(False)
     admin_state = gr.State(False)
+    chat_id_state = gr.State("")
     with gr.Tab("All"):
+        # NEW: Login + History
+        with gr.Row():
+            user_in = gr.Textbox(label="Username (to save chats)", placeholder="e.g. kwame123")
+            pin_in = gr.Textbox(label="PIN (remember it)", type="password", placeholder="e.g. 1234")
+            login_btn = gr.Button("Login / Load My Chats")
+        with gr.Row():
+            history_dropdown = gr.Dropdown(label="My Saved Chats - Click to Open", choices=[], interactive=True)
+            new_btn = gr.Button("＋ New Chat")
+        save_status = gr.Textbox(label="Save Status", value="Login to make chats permanent")
+        login_btn.click(get_chat_list, [user_in, pin_in], [history_dropdown, save_status])
+        new_btn.click(new_chat, [user_in, pin_in], [gr.Chatbot(height=400), chat_id_state, save_status]) # placeholder, will re-wire below
+        # Main Chat
         chatbot = gr.Chatbot(height=400)
         msg = gr.Textbox(label="Ask anything")
-        msg.submit(chat_fn, [msg, chatbot], [chatbot, msg])
-        gr.Button("Ask").click(chat_fn, [msg, chatbot], [chatbot, msg])
+        # Re-wire new_btn correctly to chatbot above
+        new_btn.click(new_chat, [user_in, pin_in], [chatbot, chat_id_state, save_status])
+        history_dropdown.change(load_selected_chat, [history_dropdown, user_in, pin_in, chat_id_state], [chatbot, chat_id_state, save_status])
+        msg.submit(chat_fn, [msg, chatbot, user_in, pin_in, chat_id_state], [chatbot, msg, chat_id_state, save_status])
+        gr.Button("Ask").click(chat_fn, [msg, chatbot, user_in, pin_in, chat_id_state], [chatbot, msg, chat_id_state, save_status])
     with gr.Tab("Realistic Photo"):
         inp = gr.Textbox(label="Describe photo")
         out = gr.Textbox(label="Result")
@@ -196,6 +312,7 @@ with gr.Blocks(title="Exquisite AI", js=JS) as demo:
         adm_plan = gr.Radio(["Logo GH5", "Video GH10"], value="Logo GH5", label="Plan")
         adm_manual_out = gr.Textbox(label="Manual Approve Result")
         gr.Button("Manually Approve Payment").click(admin_manual, [adm_ref, adm_plan, admin_state], adm_manual_out)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=port, allowed_paths=[".", "/tmp"], css=CSS)
