@@ -6,10 +6,13 @@ from gtts import gTTS
 import tempfile
 import urllib.parse
 groq_key = os.getenv("GROQ_API_KEY") or "dummy_key"
+pay_key = os.getenv("PAYSTACK_SECRET_KEY") or "dummy"
+admin_pw = os.getenv("ADMIN_PASSWORD") or "admin123"
 client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
 CSS = ".chatbot table{display:block;overflow-x:auto!important}"
 SYS = "You are Exquisite AI. Answer simply. NEVER use LaTeX."
 JS = "var C=['#ffffff','#1a0033','#1e3aff','#ff69b4','#00a651','#ffd700'];var i=0;function ch(){document.body.style.backgroundColor=C[i];i=(i+1)%C.length;}setInterval(ch,60000);"
+PAID = {}
 def ask_ai(prompt, history):
     msgs = [{"role": "system", "content": SYS}]
     for h in history[-6:]:
@@ -83,9 +86,68 @@ def audio_fn(audio_file, question):
         return "You said: " + transcript + " Answer: " + ans, tmp.name
     except Exception:
         return "Audio error", None
+def start_pay(email, plan):
+    if not email or "@" not in email:
+        return "Enter your email first", ""
+    amount = 500 if plan == "Logo GH5" else 1000
+    headers = {"Authorization": "Bearer " + pay_key, "Content-Type": "application/json"}
+    data = {"email": email, "amount": amount, "callback_url": "https://exquisite-ai.onrender.com"}
+    try:
+        r = requests.post("https://api.paystack.co/transaction/initialize", json=data, headers=headers, timeout=30)
+        j = r.json()
+        url = j["data"]["authorization_url"]
+        ref = j["data"]["reference"]
+        return "1. Click to pay with MoMo: " + url + " 2. After paying, copy your Reference and paste it below to unlock.", ref
+    except Exception:
+        return "Payment error. Check PAYSTACK_SECRET_KEY in Render.", ""
+def verify_pay(ref, plan):
+    if not ref:
+        return "Paste your Paystack Reference first", False, "Not paid"
+    headers = {"Authorization": "Bearer " + pay_key}
+    try:
+        r = requests.get("https://api.paystack.co/transaction/verify/" + ref, headers=headers, timeout=30)
+        j = r.json()
+        ok = j["data"]["status"] == "success"
+        if ok:
+            PAID[ref] = plan
+            return "Payment confirmed! You can now generate " + plan, True, "PAID - " + plan
+        return "Payment not confirmed yet. Wait and try again.", False, "Not paid"
+    except Exception:
+        return "Verify error", False, "Not paid"
+def logo_fn(prompt, is_paid, plan_status):
+    if not is_paid:
+        return "Pay GH5 first to unlock Logo. Use Pay tab.", None
+    return real_image("Professional logo, clean, modern: " + prompt)
+def video_fn(prompt, is_paid):
+    if not is_paid:
+        return "Pay GH10 first to unlock Video. Use Pay tab.", None
+    return real_image("Cinematic video thumbnail, high quality: " + prompt)
+def admin_login(pwd):
+    if pwd == admin_pw:
+        total = len(PAID)
+        logo_c = 0
+        video_c = 0
+        for v in PAID.values():
+            if "Logo" in v:
+                logo_c = logo_c + 1
+            if "Video" in v:
+                video_c = video_c + 1
+        money = logo_c * 5 + video_c * 10
+        txt = "ADMIN UNLOCKED. Total Paid: " + str(total) + " Logo: " + str(logo_c) + " Video: " + str(video_c) + " Total GH: " + str(money) + " Details: " + str(PAID)
+        return txt, True
+    return "Access denied. Wrong Admin Password.", False
+def admin_manual(ref, plan, is_admin):
+    if not is_admin:
+        return "Enter Admin Password first and unlock Admin."
+    if not ref:
+        return "Enter Reference to manually approve."
+    PAID[ref] = plan
+    return "Manually approved: " + ref + " for " + plan + ". Tell user to use this Reference to verify."
 with gr.Blocks(title="Exquisite AI", js=JS) as demo:
     gr.Markdown("# Exquisite AI")
-    gr.Markdown("Colour changes every 1 min")
+    gr.Markdown("Ask anything, upload documents, send voice, generate real photos.........")
+    paid_state = gr.State(False)
+    admin_state = gr.State(False)
     with gr.Tab("All"):
         chatbot = gr.Chatbot(height=400)
         msg = gr.Textbox(label="Ask anything")
@@ -107,6 +169,33 @@ with gr.Blocks(title="Exquisite AI", js=JS) as demo:
         aud_out = gr.Textbox(label="Answer", lines=8)
         aud_reply = gr.Audio(label="Voice Reply")
         gr.Button("Listen").click(audio_fn, [aud_in, q2], [aud_out, aud_reply])
+    with gr.Tab("Pay - Logo GH5 / Video GH10"):
+        email = gr.Textbox(label="Your Email for Paystack receipt")
+        plan = gr.Radio(["Logo GH5", "Video GH10"], value="Logo GH5", label="Choose Plan")
+        pay_out = gr.Textbox(label="Pay Link", lines=3)
+        ref_in = gr.Textbox(label="Paste Paystack Reference after paying")
+        status = gr.Textbox(label="Status", value="Not paid")
+        ref_holder = gr.Textbox(label="Reference (auto)", visible=False)
+        gr.Button("Get Pay Link").click(start_pay, [email, plan], [pay_out, ref_holder])
+        gr.Button("I Have Paid - Verify").click(verify_pay, [ref_in, plan], [pay_out, paid_state, status])
+    with gr.Tab("Logo GH5 - Locked"):
+        logo_in = gr.Textbox(label="Describe your logo")
+        logo_out = gr.Textbox(label="Result")
+        logo_img = gr.Image(label="Your Logo")
+        gr.Button("Generate Logo").click(logo_fn, [logo_in, paid_state, status], [logo_out, logo_img])
+    with gr.Tab("Video GH10 - Locked"):
+        vid_in = gr.Textbox(label="Describe your video")
+        vid_out = gr.Textbox(label="Result")
+        vid_img = gr.Image(label="Your Video Thumbnail")
+        gr.Button("Generate Video").click(video_fn, [vid_in, paid_state], [vid_out, vid_img])
+    with gr.Tab("Admin"):
+        adm_pw_in = gr.Textbox(label="Admin Password", type="password")
+        adm_out = gr.Textbox(label="Admin Dashboard", lines=8)
+        gr.Button("Unlock Admin").click(admin_login, adm_pw_in, [adm_out, admin_state])
+        adm_ref = gr.Textbox(label="Reference to manually approve")
+        adm_plan = gr.Radio(["Logo GH5", "Video GH10"], value="Logo GH5", label="Plan")
+        adm_manual_out = gr.Textbox(label="Manual Approve Result")
+        gr.Button("Manually Approve Payment").click(admin_manual, [adm_ref, adm_plan, admin_state], adm_manual_out)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     demo.launch(server_name="0.0.0.0", server_port=port, allowed_paths=[".", "/tmp"], css=CSS)
