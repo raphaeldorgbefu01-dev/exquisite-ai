@@ -83,7 +83,7 @@ def audio_fn(audio_file, question):
         return "You said: " + transcript + " Answer: " + ans, tmp.name
     except Exception:
         return "Audio error", None
-with gr.Blocks(title="Exquisite AI", js_on_load=JS) as demo:
+with gr.Blocks(title="Exquisite AI", js=JS) as demo:
     gr.Markdown("# Exquisite AI")
     gr.Markdown("Colour changes every 1 min")
     with gr.Tab("All"):
