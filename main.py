@@ -19,7 +19,7 @@ SYS = "You are Exquisite AI. Answer simply. NEVER use LaTeX."
 JS = "var C=['#ffffff','#1a0033','#1e3aff','#ff69b4','#00a651','#ffd700'];var i=0;function ch(){document.body.style.backgroundColor=C[i];i=(i+1)%C.length;}setInterval(ch,60000);"
 PAID = {}
 
-# --- NEW: PERMANENT CHAT STORAGE ---
+# --- PERMANENT CHAT STORAGE ---
 CHAT_FILE = "exquisite_chats.json"
 
 def load_all_chats():
@@ -39,7 +39,6 @@ def save_all_chats(data):
         print("Save error:", e)
 
 def make_user_key(username, pin):
-    # Simple hash so PIN is not stored plain
     return hashlib.sha256((username.strip().lower() + "|" + pin.strip()).encode()).hexdigest()[:16]
 
 def get_chat_list(username, pin):
@@ -48,7 +47,6 @@ def get_chat_list(username, pin):
     key = make_user_key(username, pin)
     data = load_all_chats()
     user_chats = data.get(key, {})
-    # Sort by last updated, newest first
     items = sorted(user_chats.items(), key=lambda x: x[1].get("updated", 0), reverse=True)
     choices = []
     for cid, c in items:
@@ -86,7 +84,6 @@ def save_current_chat(username, pin, chat_id, history):
         data[key] = {}
     if not chat_id:
         chat_id = str(uuid.uuid4())[:8]
-    # Title = first user message
     title = "New Chat"
     for h in history:
         if isinstance(h, dict) and h.get("role") == "user":
@@ -95,7 +92,6 @@ def save_current_chat(username, pin, chat_id, history):
     data[key][chat_id] = {"title": title, "history": history, "updated": time.time()}
     save_all_chats(data)
     return chat_id
-# --- END NEW ---
 
 def ask_ai(prompt, history):
     msgs = [{"role": "system", "content": SYS}]
@@ -119,7 +115,6 @@ def chat_fn(message, history, username, pin, chat_id):
     reply = ask_ai(message, history)
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": reply})
-    # Auto-save if logged in
     new_id = save_current_chat(username, pin, chat_id, history)
     status = "Saved ✅" if (username and pin) else "Not saved - Login to make it permanent"
     return history, "", new_id, status
@@ -155,8 +150,6 @@ def doc_fn(file, question):
             f.close()
         else:
             return "Upload PDF or TXT"
-    except Exception:
-        return "Upload PDF or TXT"
     except Exception:
         return "Could not read file"
     q = question or "Summarize simply"
@@ -250,7 +243,6 @@ with gr.Blocks(title="Exquisite AI", js=JS) as demo:
     admin_state = gr.State(False)
     chat_id_state = gr.State("")
     with gr.Tab("All"):
-        # NEW: Login + History
         with gr.Row():
             user_in = gr.Textbox(label="Username (to save chats)", placeholder="e.g. kwame123")
             pin_in = gr.Textbox(label="PIN (remember it)", type="password", placeholder="e.g. 1234")
@@ -260,11 +252,9 @@ with gr.Blocks(title="Exquisite AI", js=JS) as demo:
             new_btn = gr.Button("＋ New Chat")
         save_status = gr.Textbox(label="Save Status", value="Login to make chats permanent")
         login_btn.click(get_chat_list, [user_in, pin_in], [history_dropdown, save_status])
-        new_btn.click(new_chat, [user_in, pin_in], [gr.Chatbot(height=400), chat_id_state, save_status]) # placeholder, will re-wire below
-        # Main Chat
+        # Main Chat - ONLY ONE CHATBOT NOW
         chatbot = gr.Chatbot(height=400)
         msg = gr.Textbox(label="Ask anything")
-        # Re-wire new_btn correctly to chatbot above
         new_btn.click(new_chat, [user_in, pin_in], [chatbot, chat_id_state, save_status])
         history_dropdown.change(load_selected_chat, [history_dropdown, user_in, pin_in, chat_id_state], [chatbot, chat_id_state, save_status])
         msg.submit(chat_fn, [msg, chatbot, user_in, pin_in, chat_id_state], [chatbot, msg, chat_id_state, save_status])
