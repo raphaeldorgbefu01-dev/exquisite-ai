@@ -144,4 +144,84 @@ def doc_fn(file, q):
             for pg in reader.pages[:5]:
                 text = text + (pg.extract_text() or "")
         elif path.endswith(".txt"):
-            f = open(path, "r", errors
+            f = open(path, "r")
+            text = f.read()[:8000]
+            f.close()
+        else: return "PDF or TXT only"
+    except: return "Could not read"
+    if not q: q = "Summarize"
+    return ask_ai("Doc: " + text[:6000] +
+     " Q: " + q, [])
+def audio_fn(aud, q):
+    if aud is None: return "Upload first", None
+    try:
+        path = aud.name if hasattr(aud, "name") else aud
+        f = open(path, "rb")
+        tr = client.audio.transcriptions.create(
+         model="whisper-large-v3-turbo", file=f)
+        f.close()
+        txt = tr.text
+        if not q: q = "Summarize"
+        ans = ask_ai("Said: " + txt + " Q: " + q, [])
+        tts = gTTS(text=ans[:500], lang="en")
+        tmp = tempfile.NamedTemporaryFile(
+         delete=False, suffix=".mp3")
+        tts.save(tmp.name)
+        return "Said: " + txt + " Ans: " + ans, tmp.name
+    except: return "Audio error", None
+def start_pay(email, plan):
+    if not email or AT not in email:
+        return "Enter email", ""
+    if plan == "Logo GH5": amt = 500
+    else: amt = 1000
+    head = {"Authorization": "Bearer " + pay_key,
+     "Content-Type": "application/json"}
+    data = {"email": email, "amount": amt,
+     "callback_url": "https://exquisite-ai.onrender.com"}
+    try:
+        r = requests.post(
+         "https://api.paystack.co/transaction/initialize",
+         json=data, headers=head, timeout=30)
+        j = r.json()
+        url = j["data"]["authorization_url"]
+        ref = j["data"]["reference"]
+        m = "Pay here: " + url
+        m = m + " Ref: " + ref
+        return m, ref
+    except: return "Pay error", ""
+def verify_pay(ref, plan):
+    if not ref: return "Paste Ref", False, "Not paid"
+    head = {"Authorization": "Bearer " + pay_key}
+    try:
+        u2 = "https://api.paystack.co/transaction/verify/"
+        r = requests.get(u2 + ref,
+         headers=head, timeout=30)
+        j = r.json()
+        ok = j["data"]["status"] == "success"
+        if ok:
+            PAID[ref] = plan
+            return "Paid!", True, "PAID - " + plan
+        return "Not yet", False, "Not paid"
+    except: return "Verify error", False, "Not paid"
+def logo_fn(prompt, paid, st):
+    if not paid: return "Pay GH5 first", None
+    return real_image("Logo: " + prompt)
+def video_fn(prompt, paid):
+    if not paid: return "Pay GH10 first", None
+    return real_image("Thumb: " + prompt)
+def admin_login(pwd):
+    if pwd != admin_pw:
+        return "Denied", False
+    total = len(PAID)
+    lc = 0
+    vc = 0
+    for v in PAID.values():
+        if "Logo" in v: lc = lc + 1
+        if "Video" in v: vc = vc + 1
+    money = lc * 5 + vc * 10
+    txt = "ADMIN OK Total: " + str(total)
+    txt = txt + " Logo: " + str(lc)
+    txt = txt + " Video: " + str(vc)
+    txt = txt + " GH: " + str(money)
+    return txt, True
+def admin_manual
