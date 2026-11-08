@@ -235,17 +235,25 @@ C3 = "40%{background:#1e3aff}"
 C4 = "60%{background:#ff69b4}"
 C5 = "80%{background:#00a651}"
 C6 = "100%{background:#ffd700}}"
-C7 = "body,.gradio-container{animation:cc 60s infinite;}"
+C7 = "body,.gradio-container{animation:cc 300s infinite;}"
+T1 = ".chatbot table{display:block;overflow-x:auto;}"
+T2 = ".chatbot table{white-space:normal;min-width:100%;}"
+T3 = ".chatbot th,.chatbot td{white-space:nowrap;}"
+T4 = ".chatbot th,.chatbot td{min-width:140px;}"
+T5 = ".chatbot th,.chatbot td{word-break:keep-all;}"
+T6 = ".chatbot th,.chatbot td{padding:10px;text-align:left;}"
+T7 = ".chatbot td{white-space:normal;min-width:220px;}"
 COLOR_CSS = C1 + C2 + C3 + C4 + C5 + C6 + C7
+COLOR_CSS = COLOR_CSS + T1 + T2 + T3 + T4 + T5 + T6 + T7
 with gr.Blocks(title="Exquisite AI",
  css=COLOR_CSS) as demo:
     gr.Markdown("# Exquisite AI")
-    gr.Markdown("Colours change every 60s")
+    gr.Markdown("Ask anything, upload documents, voice, photos")
     paid_state = gr.State(False)
     admin_state = gr.State(False)
     chat_id_state = gr.State("")
     with gr.Tab("All"):
-        chatbot = gr.Chatbot(height=450)
+        chatbot = gr.Chatbot(height=450, elem_classes="chatbot")
         msg = gr.Textbox(label="Ask",
          placeholder="Type here...")
         ask_btn = gr.Button("Ask",
