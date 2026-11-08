@@ -224,4 +224,139 @@ def admin_login(pwd):
     txt = txt + " Video: " + str(vc)
     txt = txt + " GH: " + str(money)
     return txt, True
-def admin_manual
+def adm(r,p,a):
+    if not a: return "Unlock Admin"
+    if not r: return "Enter Ref"
+    PAID[r] = p
+    return "OK " + r
+C1 = "@keyframes cc{0%{background:#fff}"
+C2 = "20%{background:#800080}"
+C3 = "40%{background:#1e3aff}"
+C4 = "60%{background:#ff1493}"
+C5 = "80%{background:#00a651}"
+C6 = "100%{background:#ffd700}}"
+C7 = "body,.gradio-container{animation:cc 300s infinite;}"
+T1 = ".chatbot table{display:block;overflow-x:auto;}"
+T2 = ".chatbot table{white-space:normal;min-width:100%;}"
+T3 = ".chatbot th,.chatbot td{white-space:nowrap;}"
+T4 = ".chatbot th,.chatbot td{min-width:140px;}"
+T5 = ".chatbot th,.chatbot td{word-break:keep-all;}"
+T6 = ".chatbot th,.chatbot td{padding:10px;text-align:left;}"
+T7 = ".chatbot td{white-space:normal;min-width:220px;}"
+COLOR_CSS = C1 + C2 + C3 + C4 + C5 + C6 + C7
+COLOR_CSS = COLOR_CSS + T1 + T2 + T3 + T4 + T5 + T6 + T7
+with gr.Blocks(title="Exquisite AI") as demo:
+    gr.Markdown("# Exquisite AI")
+    gr.Markdown("Ask anything, upload documents, voice, photos")
+    paid_state = gr.State(False)
+    admin_state = gr.State(False)
+    chat_id_state = gr.State("")
+    with gr.Tab("All"):
+        chatbot = gr.Chatbot(height=450, elem_classes="chatbot")
+        msg = gr.Textbox(label="Ask",
+         placeholder="Type here...")
+        ask_btn = gr.Button("Ask",
+         variant="primary")
+        chat_st = gr.Textbox(label="Status",
+         value="Login to save")
+    with gr.Tab("Login"):
+        gr.Markdown("### Login to save")
+        user_in = gr.Textbox(label="Username")
+        pin_in = gr.Textbox(label="PIN",
+         type="password")
+        login_btn = gr.Button("Login")
+        hist_drop = gr.Dropdown(
+         label="My Chats", choices=[],
+         interactive=True)
+        new_btn = gr.Button("New Chat")
+        save_st = gr.Textbox(label="Status",
+         value="Login to save")
+    login_btn.click(get_list,
+     [user_in, pin_in], [hist_drop, save_st])
+    new_btn.click(new_chat,
+     [user_in, pin_in],
+     [chatbot, chat_id_state, chat_st])
+    hist_drop.change(load_chat,
+     [hist_drop, user_in, pin_in, chat_id_state],
+     [chatbot, chat_id_state, chat_st])
+    msg.submit(chat_fn,
+     [msg, chatbot, user_in, pin_in, chat_id_state],
+     [chatbot, msg, chat_id_state, chat_st])
+    ask_btn.click(chat_fn,
+     [msg, chatbot, user_in, pin_in, chat_id_state],
+     [chatbot, msg, chat_id_state, chat_st])
+    with gr.Tab("Realistic Photo"):
+        inp = gr.Textbox(label="Describe photo")
+        out = gr.Textbox(label="Result")
+        img = gr.Image(label="Your Photo")
+        gr.Button("Generate").click(
+         real_image, inp, [out, img])
+    with gr.Tab("Document"):
+        file = gr.File(label="Upload PDF TXT")
+        q = gr.Textbox(label="Question")
+        doc_out = gr.Textbox(label="Answer",
+         lines=10)
+        gr.Button("Ask").click(doc_fn,
+         [file, q], doc_out)
+    with gr.Tab("Audio / Voice"):
+        aud_in = gr.Audio(type="filepath",
+         label="Upload voice")
+        q2 = gr.Textbox(label="Question")
+        aud_out = gr.Textbox(label="Answer",
+         lines=8)
+        aud_reply = gr.Audio(label="Voice Reply")
+        gr.Button("Listen").click(audio_fn,
+         [aud_in, q2], [aud_out, aud_reply])
+    with gr.Tab("Pay"):
+        email = gr.Textbox(label="Email")
+        plan = gr.Radio(["Logo GH5", "Video GH10"],
+         value="Logo GH5", label="Plan")
+        pay_out = gr.Textbox(label="Pay Link",
+         lines=3)
+        ref_in = gr.Textbox(label="Paste Reference")
+        status = gr.Textbox(label="Status",
+         value="Not paid")
+        ref_holder = gr.Textbox(label="Ref",
+         visible=False)
+        gr.Button("Get Pay Link").click(
+         start_pay, [email, plan],
+         [pay_out, ref_holder])
+        gr.Button("I Have Paid").click(
+         verify_pay, [ref_in, plan],
+         [pay_out, paid_state, status])
+    with gr.Tab("Logo GH5"):
+        logo_in = gr.Textbox(label="Describe logo")
+        logo_out = gr.Textbox(label="Result")
+        logo_img = gr.Image(label="Your Logo")
+        gr.Button("Generate Logo").click(
+         logo_fn, [logo_in, paid_state, status],
+         [logo_out, logo_img])
+    with gr.Tab("Video GH10"):
+        vid_in = gr.Textbox(label="Describe video")
+        vid_out = gr.Textbox(label="Result")
+        vid_img = gr.Image(label="Thumbnail")
+        gr.Button("Generate Video").click(
+         video_fn, [vid_in, paid_state],
+         [vid_out, vid_img])
+    with gr.Tab("Admin"):
+        adm_pw_in = gr.Textbox(
+         label="Admin Password", type="password")
+        adm_out = gr.Textbox(label="Dashboard",
+         lines=8)
+        gr.Button("Unlock Admin").click(
+         admin_login, adm_pw_in,
+         [adm_out, admin_state])
+        adm_ref = gr.Textbox(label="Ref to approve")
+        adm_plan = gr.Radio(
+         ["Logo GH5", "Video GH10"],
+         value="Logo GH5", label="Plan")
+        adm_m_out = gr.Textbox(label="Result")
+        gr.Button("Approve").click(
+         adm,
+         [adm_ref, adm_plan, admin_state],
+         adm_m_out)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    print("Starting on port", port)
+    demo.launch(server_name="0.0.0.0",
+     server_port=port, css=COLOR_CSS)
