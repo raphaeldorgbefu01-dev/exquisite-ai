@@ -135,6 +135,27 @@ def real_image(prompt):
         tmp.close()
         return "Image: " + prompt, tmp.name
     except: return "Image error", None
+def ocr_image(path):
+    # Uses free OCR.space - no Groq vision needed, no 404
+    try:
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        payload = {
+         "apikey": "helloworld",
+         "base64Image": "data:image/jpeg;base64," + b64,
+         "isOverlayRequired": False,
+         "OCREngine": 2,
+         "scale": True,
+        }
+        r = requests.post("https://api.ocr.space/parse/image",
+         data=payload, timeout=60)
+        j = r.json()
+        txt = ""
+        for res in j.get("ParsedResults", []):
+            txt = txt + (res.get("ParsedText", "") or "") + "\n"
+        return txt.strip()
+    except Exception as e:
+        return ""
 def doc_fn(file, q):
     if file is None: return "Upload first"
     try:
@@ -152,38 +173,14 @@ def doc_fn(file, q):
             f = open(path, "r", errors="ignore")
             text = f.read()[:8000]
             f.close()
-        # JPG / PNG / WEBP - FIXED: Tries 4 vision models
+        # JPG / PNG / WEBP - NEW OCR METHOD, NO VISION MODEL
         elif low.endswith((".jpg", ".jpeg", ".png", ".webp")):
-            with open(path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode("utf-8")
+            text = ocr_image(path)
+            if not text:
+                return "Could not read text from image. Try a clearer photo, good light, not blurry."
             if not q:
-                q = "Read all the text and questions in this image and answer them clearly, step by step."
-            vision_models = [
-             "llama-3.2-11b-vision-preview",
-             "llama-3.2-90b-vision-preview",
-             "meta-llama/llama-4-maverick-17b-128e-instruct",
-             "meta-llama/llama-4-scout-17b-16e-instruct",
-            ]
-            last_err = ""
-            ans = None
-            for vm in vision_models:
-                try:
-                    r = client.chat.completions.create(
-                     model=vm,
-                     messages=[{"role": "user", "content": [
-                      {"type": "text", "text": q},
-                      {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
-                     ]}]
-                    )
-                    ans = r.choices[0].message.content
-                    break
-                except Exception as e:
-                    last_err = str(e)[:300]
-                    continue
-            if ans:
-                return ans
-            else:
-                return "Image error, try again. " + last_err
+                q = "Answer all the questions in this document clearly, step by step."
+            return ask_ai("Document text from image: " + text[:6000] + " Q: " + q, [])
         else:
             return "PDF, TXT, JPG or PNG only"
     except Exception as e:
