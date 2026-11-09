@@ -9,6 +9,8 @@ import json
 import hashlib
 import time
 import uuid
+import base64
+
 groq_key = os.getenv("GROQ_API_KEY")
 pay_key = os.getenv("PAYSTACK_SECRET_KEY")
 admin_pw = os.getenv("ADMIN_PASSWORD")
@@ -138,17 +140,41 @@ def doc_fn(file, q):
     try:
         path = file.name if hasattr(file, "name") else file
         text = ""
-        if path.endswith(".pdf"):
+        low = path.lower()
+        # PDF
+        if low.endswith(".pdf"):
             from PyPDF2 import PdfReader
             reader = PdfReader(path)
             for pg in reader.pages[:5]:
                 text = text + (pg.extract_text() or "")
-        elif path.endswith(".txt"):
-            f = open(path, "r")
+        # TXT
+        elif low.endswith(".txt"):
+            f = open(path, "r", errors="ignore")
             text = f.read()[:8000]
             f.close()
-        else: return "PDF or TXT only"
-    except: return "Could not read"
+        # JPG / PNG / WEBP - NEW! Uses Groq Vision
+        elif low.endswith((".jpg", ".jpeg", ".png", ".webp")):
+            with open(path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode("utf-8")
+            if not q:
+                q = "Read all the text and questions in this image and answer them clearly, step by step."
+            try:
+                r = client.chat.completions.create(
+                 model="meta-llama/llama-4-scout-17b-16e-instruct",
+                 messages=[{"role": "user", "content": [
+                  {"type": "text", "text": q},
+                  {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                 ]}]
+                )
+                return r.choices[0].message.content
+            except Exception as e:
+                return "Image error, try again. " + str(e)[:300]
+        else:
+            return "PDF, TXT, JPG or PNG only"
+    except Exception as e:
+        return "Could not read: " + str(e)[:300]
+    if not text.strip():
+        return "Could not read any text from file"
     if not q: q = "Summarize"
     return ask_ai("Doc: " + text[:6000] +
      " Q: " + q, [])
@@ -292,7 +318,7 @@ with gr.Blocks(title="Exquisite AI") as demo:
         gr.Button("Generate").click(
          real_image, inp, [out, img])
     with gr.Tab("Document"):
-        file = gr.File(label="Upload PDF TXT")
+        file = gr.File(label="Upload PDF, TXT, JPG or PNG", file_types=[".pdf", ".txt", ".jpg", ".jpeg", ".png", ".webp"])
         q = gr.Textbox(label="Question")
         doc_out = gr.Textbox(label="Answer",
          lines=10)
