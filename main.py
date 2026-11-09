@@ -152,23 +152,38 @@ def doc_fn(file, q):
             f = open(path, "r", errors="ignore")
             text = f.read()[:8000]
             f.close()
-        # JPG / PNG / WEBP - NEW! Uses Groq Vision
+        # JPG / PNG / WEBP - FIXED: Tries 4 vision models
         elif low.endswith((".jpg", ".jpeg", ".png", ".webp")):
             with open(path, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode("utf-8")
             if not q:
                 q = "Read all the text and questions in this image and answer them clearly, step by step."
-            try:
-                r = client.chat.completions.create(
-                 model="meta-llama/llama-4-scout-17b-16e-instruct",
-                 messages=[{"role": "user", "content": [
-                  {"type": "text", "text": q},
-                  {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
-                 ]}]
-                )
-                return r.choices[0].message.content
-            except Exception as e:
-                return "Image error, try again. " + str(e)[:300]
+            vision_models = [
+             "llama-3.2-11b-vision-preview",
+             "llama-3.2-90b-vision-preview",
+             "meta-llama/llama-4-maverick-17b-128e-instruct",
+             "meta-llama/llama-4-scout-17b-16e-instruct",
+            ]
+            last_err = ""
+            ans = None
+            for vm in vision_models:
+                try:
+                    r = client.chat.completions.create(
+                     model=vm,
+                     messages=[{"role": "user", "content": [
+                      {"type": "text", "text": q},
+                      {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                     ]}]
+                    )
+                    ans = r.choices[0].message.content
+                    break
+                except Exception as e:
+                    last_err = str(e)[:300]
+                    continue
+            if ans:
+                return ans
+            else:
+                return "Image error, try again. " + last_err
         else:
             return "PDF, TXT, JPG or PNG only"
     except Exception as e:
