@@ -136,39 +136,25 @@ def real_image(prompt):
         return "Image: " + prompt, tmp.name
     except: return "Image error", None
 def ocr_image(path):
-    # FIXED: Shrinks big 5.1MB photos so OCR can read them
+    # NEW: Local Tesseract - no API key, no limit, works for big photos
     try:
         from PIL import Image
-        import io
+        import pytesseract
         img = Image.open(path)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        img.thumbnail((1200, 1200))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=70)
-        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-        for engine in [2, 1]:
-            try:
-                payload = {
-                 "apikey": "helloworld",
-                 "base64Image": "data:image/jpeg;base64," + b64,
-                 "isOverlayRequired": False,
-                 "OCREngine": engine,
-                 "scale": True,
-                 "isTable": True,
-                }
-                r = requests.post("https://api.ocr.space/parse/image",
-                 data=payload, timeout=60)
-                j = r.json()
-                txt = ""
-                for res in j.get("ParsedResults", []):
-                    txt = txt + (res.get("ParsedText", "") or "") + "\n"
-                txt = txt.strip()
-                if txt and len(txt) > 20:
-                    return txt
-            except:
-                continue
-        return ""
+        # Make text clearer: bigger + grey
+        w, h = img.size
+        if w < 2000:
+            img = img.resize((w*2, h*2))
+        gray = img.convert("L")
+        txt = pytesseract.image_to_string(gray)
+        txt = txt.strip()
+        if txt and len(txt) > 20:
+            return txt
+        # Try again with original colour if grey failed
+        txt2 = pytesseract.image_to_string(img).strip()
+        return txt2
     except Exception as e:
         return ""
 def doc_fn(file, q):
@@ -177,23 +163,20 @@ def doc_fn(file, q):
         path = file.name if hasattr(file, "name") else file
         text = ""
         low = path.lower()
-        # PDF
         if low.endswith(".pdf"):
             from PyPDF2 import PdfReader
             reader = PdfReader(path)
             for pg in reader.pages[:5]:
                 text = text + (pg.extract_text() or "")
-        # TXT
         elif low.endswith(".txt"):
             f = open(path, "r", errors="ignore")
             text = f.read()[:8000]
             f.close()
-        # JPG / PNG / WEBP - OCR METHOD
         elif low.endswith((".jpg", ".jpeg", ".png", ".webp")):
             text = ocr_image(path)
             if not text:
-                return "Could not read text from image. Try a clearer photo, good light, not blurry."
-            if not q:
+                return "Could not read text. Take photo straight, bright light, hold phone still."
+            if not q or q.strip().lower() == "answer":
                 q = "Answer all the questions in this document clearly, step by step."
             return ask_ai("Document text from image: " + text[:6000] + " Q: " + q, [])
         else:
@@ -346,7 +329,7 @@ with gr.Blocks(title="Exquisite AI") as demo:
          real_image, inp, [out, img])
     with gr.Tab("Document"):
         file = gr.File(label="Upload PDF, TXT, JPG or PNG", file_types=[".pdf", ".txt", ".jpg", ".jpeg", ".png", ".webp"])
-        q = gr.Textbox(label="Question")
+        q = gr.Textbox(label="Question - leave empty to answer all")
         doc_out = gr.Textbox(label="Answer",
          lines=10)
         gr.Button("Ask").click(doc_fn,
