@@ -136,24 +136,39 @@ def real_image(prompt):
         return "Image: " + prompt, tmp.name
     except: return "Image error", None
 def ocr_image(path):
-    # Uses free OCR.space - no Groq vision needed, no 404
+    # FIXED: Shrinks big 5.1MB photos so OCR can read them
     try:
-        with open(path, "rb") as f:
-            b64 = base64.b64encode(f.read()).decode("utf-8")
-        payload = {
-         "apikey": "helloworld",
-         "base64Image": "data:image/jpeg;base64," + b64,
-         "isOverlayRequired": False,
-         "OCREngine": 2,
-         "scale": True,
-        }
-        r = requests.post("https://api.ocr.space/parse/image",
-         data=payload, timeout=60)
-        j = r.json()
-        txt = ""
-        for res in j.get("ParsedResults", []):
-            txt = txt + (res.get("ParsedText", "") or "") + "\n"
-        return txt.strip()
+        from PIL import Image
+        import io
+        img = Image.open(path)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail((1200, 1200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=70)
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        for engine in [2, 1]:
+            try:
+                payload = {
+                 "apikey": "helloworld",
+                 "base64Image": "data:image/jpeg;base64," + b64,
+                 "isOverlayRequired": False,
+                 "OCREngine": engine,
+                 "scale": True,
+                 "isTable": True,
+                }
+                r = requests.post("https://api.ocr.space/parse/image",
+                 data=payload, timeout=60)
+                j = r.json()
+                txt = ""
+                for res in j.get("ParsedResults", []):
+                    txt = txt + (res.get("ParsedText", "") or "") + "\n"
+                txt = txt.strip()
+                if txt and len(txt) > 20:
+                    return txt
+            except:
+                continue
+        return ""
     except Exception as e:
         return ""
 def doc_fn(file, q):
@@ -173,7 +188,7 @@ def doc_fn(file, q):
             f = open(path, "r", errors="ignore")
             text = f.read()[:8000]
             f.close()
-        # JPG / PNG / WEBP - NEW OCR METHOD, NO VISION MODEL
+        # JPG / PNG / WEBP - OCR METHOD
         elif low.endswith((".jpg", ".jpeg", ".png", ".webp")):
             text = ocr_image(path)
             if not text:
